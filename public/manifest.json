@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "PromptPilot",
+  "version": "0.1.0",
+  "description": "AI-powered prompt improvement tool",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "PromptPilot"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.openai.com/*",
+        "*://*.anthropic.com/*",
+        "*://*.huggingface.co/*",
+        "*://*.perplexity.ai/*",
+        "<all_urls>"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://localhost:4000/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
