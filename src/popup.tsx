@@ -18,7 +18,7 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     // Listen for messages from the background script
-    chrome.runtime.onMessage.addListener((message) => {
+    const messageListener = (message: any) => {
       if (message.type === "CAPTURED_TEXT") {
         setState((prev) => ({ ...prev, originalPrompt: message.text }));
       } else if (message.type === "IMPROVED_TEXT") {
@@ -34,22 +34,82 @@ const Popup: React.FC = () => {
           isLoading: false,
         }));
       }
-    });
+    };
 
-    // Request the current prompt from the content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "GET_SELECTED_TEXT" });
+    chrome.runtime.onMessage.addListener(messageListener);
+
+    // Delay the initial tab query to ensure extension is ready
+    const timeoutId = setTimeout(() => {
+      // Request the current prompt from the content script
+      // but only if Chrome APIs are ready
+      if (chrome.tabs && chrome.tabs.query) {
+        try {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs.length > 0 && tabs[0]?.id) {
+              // Only send message if tab exists
+              try {
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  { type: "GET_SELECTED_TEXT" },
+                  // Add response callback
+                  (response) => {
+                    // Handle no response or error gracefully
+                    const lastError = chrome.runtime.lastError;
+                    if (lastError) {
+                      console.log(
+                        "Content script not ready:",
+                        lastError.message
+                      );
+                      // Don't show this error to user as it's common when tab isn't ready
+                    }
+                  }
+                );
+              } catch (err) {
+                console.log("Error sending message to tab:", err);
+              }
+            }
+          });
+        } catch (err) {
+          console.log("Error querying tabs:", err);
+        }
       }
-    });
+    }, 300); // Short delay to allow extension to initialize
+
+    // Cleanup listener on unmount
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleImprove = () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    chrome.runtime.sendMessage({
-      type: "IMPROVE_PROMPT",
-      text: state.originalPrompt,
-    });
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: "IMPROVE_PROMPT",
+          text: state.originalPrompt,
+        },
+        (response) => {
+          const lastError = chrome.runtime.lastError;
+          if (lastError) {
+            console.log("Error sending improve request:", lastError.message);
+            setState((prev) => ({
+              ...prev,
+              error:
+                "Connection error. Please check if the backend is running.",
+              isLoading: false,
+            }));
+          }
+        }
+      );
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        error: "Failed to send improve request",
+        isLoading: false,
+      }));
+    }
   };
 
   const handleCopy = () => {

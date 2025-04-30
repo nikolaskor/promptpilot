@@ -6,19 +6,33 @@
 // Store the currently focused element
 let currentFocusedElement: HTMLElement | null = null;
 let improveButton: HTMLElement | null = null;
+let contentIsInitialized = false;
 
-// Initialize the content script
-function init() {
+// Initialize the content script safely
+function contentInitialize() {
+  if (contentIsInitialized) return;
+
+  console.log("PromptPilot content script initializing...");
+
   // Listen for focusin events to detect when user focuses on a text area
   document.addEventListener("focusin", handleFocusIn);
 
   // Listen for messages from the popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log("Content script received message:", message.type);
+
     if (message.type === "GET_SELECTED_TEXT") {
       sendTextToPopup();
+      // Always send a response to prevent connection errors
+      sendResponse({ status: "text_requested" });
+    } else {
+      // For unhandled message types, send a response to prevent connection errors
+      sendResponse({ status: "unhandled_message_type" });
     }
+    return true; // Indicate we will send a response asynchronously
   });
 
+  contentIsInitialized = true;
   console.log("PromptPilot content script initialized");
 }
 
@@ -96,7 +110,16 @@ function handleImproveClick() {
     sendTextToPopup();
 
     // Open the popup
-    chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
+    try {
+      chrome.runtime.sendMessage({ type: "OPEN_POPUP" }, (response) => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          console.log("Error opening popup:", lastError.message);
+        }
+      });
+    } catch (err) {
+      console.log("Error sending open popup message:", err);
+    }
   }
 }
 
@@ -115,12 +138,28 @@ function sendTextToPopup() {
       text = currentFocusedElement.innerText;
     }
 
-    chrome.runtime.sendMessage({
-      type: "CAPTURED_TEXT",
-      text: text,
-    });
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: "CAPTURED_TEXT",
+          text: text,
+        },
+        (response) => {
+          const lastError = chrome.runtime.lastError;
+          if (lastError) {
+            console.log("Error sending captured text:", lastError.message);
+          }
+        }
+      );
+    } catch (err) {
+      console.log("Error sending captured text message:", err);
+    }
   }
 }
 
-// Initialize the content script when the page loads
-init();
+// Initialize the content script when the page is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", contentInitialize);
+} else {
+  contentInitialize();
+}
