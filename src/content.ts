@@ -23,6 +23,10 @@ function initialize() {
   // Add event listener for text selection
   document.addEventListener("mouseup", handleTextSelection);
 
+  // Track input elements when clicked or focused
+  document.addEventListener("mousedown", trackTextElement);
+  document.addEventListener("focusin", trackTextElement);
+
   console.log("PromptPilot content script initialized");
 }
 
@@ -38,6 +42,10 @@ function handleMessages(message: any, sender: any, sendResponse: any) {
     handleError(message.error, sendResponse);
   } else if (message.type === "GET_SELECTED_TEXT") {
     const selectedText = getSelectedText();
+    console.log(
+      "GET_SELECTED_TEXT request received, returning:",
+      selectedText.substring(0, 50) + (selectedText.length > 50 ? "..." : "")
+    );
     sendResponse({ text: selectedText });
   }
 
@@ -159,7 +167,7 @@ function handleImproveClick() {
 
   if (!text) {
     showNotification(
-      "Please select text or click in a text field first",
+      "No text found. Please click or focus on a text field.",
       "error"
     );
     return;
@@ -248,7 +256,20 @@ function getSelectedText(): string {
       }
 
       // Otherwise use all the content
-      return activeElement.innerText.trim();
+      return activeElement.textContent?.trim() || "";
+    }
+  }
+
+  // If no active element with text is found, try to find the last clicked text element
+  if (lastTextElement) {
+    if (
+      lastTextElement.tagName === "TEXTAREA" ||
+      lastTextElement.tagName === "INPUT"
+    ) {
+      const input = lastTextElement as HTMLInputElement | HTMLTextAreaElement;
+      return input.value.trim();
+    } else if (lastTextElement.getAttribute("contenteditable") === "true") {
+      return lastTextElement.textContent?.trim() || "";
     }
   }
 
@@ -427,6 +448,22 @@ function injectStyles() {
   `;
 
   document.head.appendChild(style);
+}
+
+/**
+ * Track the last clicked or focused text element
+ */
+function trackTextElement(event: Event) {
+  const target = event.target as HTMLElement;
+  if (
+    target &&
+    (target.tagName === "TEXTAREA" ||
+      target.tagName === "INPUT" ||
+      target.getAttribute("contenteditable") === "true")
+  ) {
+    console.log("Tracking text element:", target.tagName);
+    lastTextElement = target;
+  }
 }
 
 // Initialize when the page is ready

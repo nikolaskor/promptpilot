@@ -91,16 +91,13 @@ const Popup: React.FC = () => {
       console.error("Error accessing session storage:", e);
     }
 
-    // Delay the initial tab query to ensure extension is ready
-    const timeoutId = setTimeout(() => {
-      // Request the current prompt from the content script
-      // but only if Chrome APIs are ready
+    // Function to get text from active tab
+    const getTextFromActiveTab = () => {
       if (chrome.tabs && chrome.tabs.query) {
         try {
           console.log("Querying active tab to request text");
           chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs && tabs.length > 0 && tabs[0]?.id) {
-              // Only send message if tab exists
               console.log(
                 "Active tab found, sending GET_SELECTED_TEXT message"
               );
@@ -108,21 +105,29 @@ const Popup: React.FC = () => {
                 chrome.tabs.sendMessage(
                   tabs[0].id,
                   { type: "GET_SELECTED_TEXT" },
-                  // Add response callback
                   (response) => {
-                    // Handle no response or error gracefully
+                    // Handle response gracefully
                     const lastError = chrome.runtime.lastError;
                     if (lastError) {
                       console.log(
                         "Content script not ready:",
                         lastError.message
                       );
-                      // Don't show this error to user as it's common when tab isn't ready
-                    } else if (response) {
+                    } else if (response && response.text) {
                       console.log(
-                        "Received response from content script:",
-                        response
+                        "Received text from content script:",
+                        response.text.substring(0, 50) + "..."
                       );
+                      if (response.text.trim()) {
+                        setState((prev) => ({
+                          ...prev,
+                          originalPrompt: response.text,
+                        }));
+                        // Also save to session storage
+                        chrome.storage.session.set({
+                          lastCapturedText: response.text,
+                        });
+                      }
                     }
                   }
                 );
@@ -139,7 +144,14 @@ const Popup: React.FC = () => {
       } else {
         console.warn("Chrome tabs API not available");
       }
-    }, 300); // Short delay to allow extension to initialize
+    };
+
+    // Try immediately and then again after a short delay to ensure content script is ready
+    getTextFromActiveTab();
+
+    const timeoutId = setTimeout(() => {
+      getTextFromActiveTab();
+    }, 500);
 
     // Cleanup listener on unmount
     return () => {
