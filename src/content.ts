@@ -1,165 +1,437 @@
 /**
  * Content script for PromptPilot
- * Detects text input fields and injects an "Improve" button
+ * Uses a fixed button approach for better reliability
  */
 
-// Store the currently focused element
-let currentFocusedElement: HTMLElement | null = null;
-let improveButton: HTMLElement | null = null;
-let contentIsInitialized = false;
+// State tracking
+let isImprovementInProgress = false;
+let lastTextElement: HTMLElement | null = null;
 
-// Initialize the content script safely
-function contentInitialize() {
-  if (contentIsInitialized) return;
-
+// Initialize the content script
+function initialize() {
   console.log("PromptPilot content script initializing...");
 
-  // Listen for focusin events to detect when user focuses on a text area
-  document.addEventListener("focusin", handleFocusIn);
+  // Inject styles
+  injectStyles();
 
-  // Listen for messages from the popup
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("Content script received message:", message.type);
+  // Create and add the fixed button
+  createFixedButton();
 
-    if (message.type === "GET_SELECTED_TEXT") {
-      sendTextToPopup();
-      // Always send a response to prevent connection errors
-      sendResponse({ status: "text_requested" });
-    } else {
-      // For unhandled message types, send a response to prevent connection errors
-      sendResponse({ status: "unhandled_message_type" });
-    }
-    return true; // Indicate we will send a response asynchronously
-  });
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener(handleMessages);
 
-  contentIsInitialized = true;
+  // Add event listener for text selection
+  document.addEventListener("mouseup", handleTextSelection);
+
   console.log("PromptPilot content script initialized");
 }
 
 /**
- * Handle focus events on the page
- * @param event - The focus event
+ * Handle messages from other parts of the extension
  */
-function handleFocusIn(event: FocusEvent) {
-  const target = event.target as HTMLElement;
+function handleMessages(message: any, sender: any, sendResponse: any) {
+  console.log("Content script received message:", message.type);
 
-  // Check if the focused element is a textarea or contenteditable
-  if (
-    target.tagName === "TEXTAREA" ||
-    target.getAttribute("contenteditable") === "true"
-  ) {
-    currentFocusedElement = target;
-    injectImproveButton(target);
+  if (message.type === "IMPROVED_TEXT_FOR_REPLACEMENT") {
+    handleImprovedText(message.text, sendResponse);
+  } else if (message.type === "IMPROVEMENT_ERROR") {
+    handleError(message.error, sendResponse);
+  } else if (message.type === "GET_SELECTED_TEXT") {
+    const selectedText = getSelectedText();
+    sendResponse({ text: selectedText });
+  }
+
+  return true; // Keep the message channel open
+}
+
+/**
+ * Handle improved text from the backend
+ */
+function handleImprovedText(improvedText: string, sendResponse: Function) {
+  try {
+    console.log("Received improved text for replacement");
+
+    if (!improvedText) {
+      showNotification("Received empty text from server", "error");
+      resetButtonState();
+      isImprovementInProgress = false;
+      sendResponse({ status: "error" });
+      return;
+    }
+
+    // Insert the improved text
+    insertImprovedText(improvedText);
+
+    // Show success UI
+    showSuccessState();
+
+    // Store the improved text in session storage
+    chrome.storage.session.set({ lastImprovedText: improvedText }, () => {
+      console.log("Saved improved text to session storage");
+    });
+
+    sendResponse({ status: "text_updated" });
+  } catch (error) {
+    console.error("Error handling improved text:", error);
+    showNotification("Failed to update text with improvements", "error");
+    resetButtonState();
+    isImprovementInProgress = false;
+    sendResponse({ status: "error" });
+  }
+}
+
+/**
+ * Handle errors during the improvement process
+ */
+function handleError(error: string, sendResponse: Function) {
+  console.error("Received improvement error:", error);
+  showNotification(error || "Error improving text", "error");
+  resetButtonState();
+  isImprovementInProgress = false;
+  sendResponse({ status: "error_displayed" });
+}
+
+/**
+ * Insert improved text at the appropriate location
+ */
+function insertImprovedText(newText: string) {
+  const selection = window.getSelection();
+
+  // If we have an active selection, replace it
+  if (selection && !selection.isCollapsed) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(newText));
+    return;
+  }
+
+  // Otherwise, use the last text element if available
+  if (lastTextElement) {
+    if (
+      lastTextElement.tagName === "TEXTAREA" ||
+      lastTextElement.tagName === "INPUT"
+    ) {
+      const input = lastTextElement as HTMLInputElement | HTMLTextAreaElement;
+      input.value = newText;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (lastTextElement.getAttribute("contenteditable") === "true") {
+      lastTextElement.innerText = newText;
+      lastTextElement.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    }
   } else {
-    // Remove button if focus moves to non-text element
-    removeImproveButton();
-    currentFocusedElement = null;
+    console.warn("No target element found to insert improved text");
+    showNotification(
+      "Please select text or click in a text field before improving",
+      "error"
+    );
   }
 }
 
 /**
- * Create and inject the "Improve" button next to the focused element
- * @param element - The element to inject the button next to
+ * Create the fixed position improve button
  */
-function injectImproveButton(element: HTMLElement) {
-  // Remove any existing buttons
-  removeImproveButton();
+function createFixedButton() {
+  const button = document.createElement("button");
+  button.id = "promptpilot-button";
+  button.className = "promptpilot-button";
+  button.innerHTML = '<span class="promptpilot-icon">✏️</span> Improve Text';
 
-  // Create the button element
-  improveButton = document.createElement("button");
-  improveButton.textContent = "✏️ Improve";
-  improveButton.style.position = "absolute";
-  improveButton.style.zIndex = "10000";
-  improveButton.style.padding = "4px 8px";
-  improveButton.style.backgroundColor = "#4285f4";
-  improveButton.style.color = "white";
-  improveButton.style.border = "none";
-  improveButton.style.borderRadius = "4px";
-  improveButton.style.fontSize = "12px";
-  improveButton.style.cursor = "pointer";
-  improveButton.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.3)";
+  // Add click listener
+  button.addEventListener("click", handleImproveClick);
 
-  // Position the button near the element
-  const rect = element.getBoundingClientRect();
-  improveButton.style.top = `${window.scrollY + rect.top - 30}px`;
-  improveButton.style.left = `${window.scrollX + rect.right - 100}px`;
+  // Add to the page
+  document.body.appendChild(button);
 
-  // Add click event listener
-  improveButton.addEventListener("click", handleImproveClick);
-
-  // Add the button to the page
-  document.body.appendChild(improveButton);
+  console.log("PromptPilot button added to page");
 }
 
 /**
- * Remove the improve button from the page
- */
-function removeImproveButton() {
-  if (improveButton && improveButton.parentNode) {
-    improveButton.removeEventListener("click", handleImproveClick);
-    improveButton.parentNode.removeChild(improveButton);
-    improveButton = null;
-  }
-}
-
-/**
- * Handle clicks on the improve button
+ * Handle improve button click
  */
 function handleImproveClick() {
-  if (currentFocusedElement) {
-    sendTextToPopup();
+  if (isImprovementInProgress) {
+    console.log("Improvement already in progress");
+    return;
+  }
 
-    // Open the popup
-    try {
-      chrome.runtime.sendMessage({ type: "OPEN_POPUP" }, (response) => {
-        const lastError = chrome.runtime.lastError;
-        if (lastError) {
-          console.log("Error opening popup:", lastError.message);
-        }
-      });
-    } catch (err) {
-      console.log("Error sending open popup message:", err);
+  // Get the text to improve
+  const text = getSelectedText();
+
+  if (!text) {
+    showNotification(
+      "Please select text or click in a text field first",
+      "error"
+    );
+    return;
+  }
+
+  console.log(
+    "Improving text:",
+    text.substring(0, 50) + (text.length > 50 ? "..." : "")
+  );
+
+  // Update UI to show progress
+  isImprovementInProgress = true;
+  showLoadingState();
+
+  // Save to session storage for popup
+  chrome.storage.session.set({ lastCapturedText: text }, () => {
+    console.log("Saved text to session storage");
+  });
+
+  // Send to background script for improvement
+  chrome.runtime.sendMessage(
+    { type: "IMPROVE_AND_REPLACE", text: text },
+    (response) => {
+      if (chrome.runtime.lastError) {
+        console.error(
+          "Error sending improvement request:",
+          chrome.runtime.lastError
+        );
+        showNotification(
+          "Failed to communicate with extension. Please try again.",
+          "error"
+        );
+        resetButtonState();
+        isImprovementInProgress = false;
+      }
+    }
+  );
+}
+
+/**
+ * Get currently selected text or text from an input field
+ */
+function getSelectedText(): string {
+  // First check if there's a selection in the document
+  const selection = window.getSelection();
+  if (selection && selection.toString().trim() !== "") {
+    // Get the selected text
+    return selection.toString().trim();
+  }
+
+  // Check if an input or contenteditable is focused
+  const activeElement = document.activeElement as HTMLElement;
+  if (activeElement) {
+    if (
+      activeElement.tagName === "TEXTAREA" ||
+      activeElement.tagName === "INPUT"
+    ) {
+      // Store reference to the input element
+      lastTextElement = activeElement;
+
+      // Get text from input element
+      const input = activeElement as HTMLInputElement | HTMLTextAreaElement;
+
+      // Check if there's a selection within the input
+      if (
+        input.selectionStart !== undefined &&
+        input.selectionEnd !== undefined &&
+        input.selectionStart !== null &&
+        input.selectionEnd !== null &&
+        input.selectionStart !== input.selectionEnd
+      ) {
+        return input.value
+          .substring(input.selectionStart, input.selectionEnd)
+          .trim();
+      }
+
+      // Otherwise use the whole input value
+      return input.value.trim();
+    } else if (activeElement.getAttribute("contenteditable") === "true") {
+      // Store reference to the contenteditable element
+      lastTextElement = activeElement;
+
+      // If there's a selection, use that
+      if (selection && selection.toString().trim() !== "") {
+        return selection.toString().trim();
+      }
+
+      // Otherwise use all the content
+      return activeElement.innerText.trim();
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Handle text selection in the document
+ */
+function handleTextSelection(event: MouseEvent) {
+  const selection = window.getSelection();
+  if (selection && selection.toString().trim() !== "") {
+    // Store the container element if it's a text input
+    const container = selection.anchorNode?.parentElement;
+    if (
+      container &&
+      (container.tagName === "TEXTAREA" ||
+        container.tagName === "INPUT" ||
+        container.getAttribute("contenteditable") === "true")
+    ) {
+      lastTextElement = container as HTMLElement;
     }
   }
 }
 
 /**
- * Send the text from the current focused element to the popup
+ * Show loading state on the button
  */
-function sendTextToPopup() {
-  if (currentFocusedElement) {
-    let text = "";
-
-    if (currentFocusedElement.tagName === "TEXTAREA") {
-      text = (currentFocusedElement as HTMLTextAreaElement).value;
-    } else if (
-      currentFocusedElement.getAttribute("contenteditable") === "true"
-    ) {
-      text = currentFocusedElement.innerText;
-    }
-
-    try {
-      chrome.runtime.sendMessage(
-        {
-          type: "CAPTURED_TEXT",
-          text: text,
-        },
-        (response) => {
-          const lastError = chrome.runtime.lastError;
-          if (lastError) {
-            console.log("Error sending captured text:", lastError.message);
-          }
-        }
-      );
-    } catch (err) {
-      console.log("Error sending captured text message:", err);
-    }
+function showLoadingState() {
+  const button = document.getElementById("promptpilot-button");
+  if (button) {
+    button.className = "promptpilot-button loading";
+    button.innerHTML = '<span class="promptpilot-loader"></span> Improving...';
   }
 }
 
-// Initialize the content script when the page is ready
+/**
+ * Reset button to original state
+ */
+function resetButtonState() {
+  const button = document.getElementById("promptpilot-button");
+  if (button) {
+    button.className = "promptpilot-button";
+    button.innerHTML = '<span class="promptpilot-icon">✏️</span> Improve Text';
+  }
+}
+
+/**
+ * Show success state on the button
+ */
+function showSuccessState() {
+  const button = document.getElementById("promptpilot-button");
+  if (button) {
+    button.className = "promptpilot-button success";
+    button.innerHTML = '<span class="promptpilot-icon">✓</span> Improved!';
+
+    // Show success notification
+    showNotification("Text successfully improved!", "success");
+
+    // Reset after delay
+    setTimeout(() => {
+      resetButtonState();
+      isImprovementInProgress = false;
+    }, 2000);
+  }
+}
+
+/**
+ * Show notification to the user
+ */
+function showNotification(message: string, type: "success" | "error") {
+  // Create notification element
+  const notification = document.createElement("div");
+  notification.className = `promptpilot-notification ${type}`;
+  notification.textContent = message;
+
+  // Add to page
+  document.body.appendChild(notification);
+
+  // Remove after delay
+  setTimeout(() => {
+    if (notification.parentNode) {
+      document.body.removeChild(notification);
+    }
+  }, 4000);
+}
+
+/**
+ * Inject CSS styles
+ */
+function injectStyles() {
+  const style = document.createElement("style");
+  style.textContent = `
+    /* Button styles */
+    .promptpilot-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      z-index: 2147483646;
+      transition: background-color 0.2s;
+    }
+    
+    .promptpilot-button:hover {
+      background-color: #3367d6;
+    }
+    
+    .promptpilot-button.loading {
+      background-color: #9aa0a6;
+      cursor: not-allowed;
+    }
+    
+    .promptpilot-button.success {
+      background-color: #34A853;
+    }
+    
+    .promptpilot-icon {
+      font-size: 16px;
+    }
+    
+    .promptpilot-loader {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: promptpilot-spin 1s linear infinite;
+      margin-right: 4px;
+    }
+    
+    @keyframes promptpilot-spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Notification styles */
+    .promptpilot-notification {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 14px;
+      max-width: 300px;
+      color: white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      z-index: 2147483647;
+      animation: promptpilot-fade-in 0.3s;
+    }
+    
+    .promptpilot-notification.success {
+      background-color: #34A853;
+    }
+    
+    .promptpilot-notification.error {
+      background-color: #EA4335;
+    }
+    
+    @keyframes promptpilot-fade-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+// Initialize when the page is ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", contentInitialize);
+  document.addEventListener("DOMContentLoaded", initialize);
 } else {
-  contentInitialize();
+  initialize();
 }
