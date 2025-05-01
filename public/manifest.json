@@ -18,7 +18,15 @@
         "*://*.anthropic.com/*",
         "*://*.huggingface.co/*",
         "*://*.perplexity.ai/*",
-        "<all_urls>"
+        "*://*.bard.google.com/*",
+        "*://*.gemini.google.com/*",
+        "*://*.claude.ai/*",
+        "*://*.bing.com/chat/*",
+        "*://*.codeium.com/*",
+        "*://*.cohere.com/*",
+        "*://*.deepinfra.com/*",
+        "*://*.replicate.com/*",
+        "*://*.chatgpt.com/*"
       ],
       "js": ["content.js"]
     }
