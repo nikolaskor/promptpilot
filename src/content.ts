@@ -8,6 +8,7 @@ let isImprovementInProgress = false;
 let lastTextElement: HTMLElement | null = null;
 let selectedIntent = "";
 let isDropdownOpen = false;
+let isWidgetExpanded = false;
 
 // Intent categories
 const INTENT_CATEGORIES = [
@@ -147,64 +148,68 @@ function insertImprovedText(newText: string) {
 }
 
 /**
- * Create the fixed position improve button with intent selector
+ * Create the minimalistic floating widget with intent selector
  */
 function createFixedButton() {
-  // Create container
+  // Create main container
   const container = document.createElement("div");
   container.id = "promptpilot-container";
   container.className = "promptpilot-container";
 
-  // Create intent selector
-  const intentSelector = document.createElement("div");
-  intentSelector.className = "promptpilot-intent-selector";
+  // Create main toggle button (always visible)
+  const mainButton = document.createElement("button");
+  mainButton.id = "promptpilot-main-button";
+  mainButton.className = "promptpilot-main-button";
+  mainButton.innerHTML = '<span class="promptpilot-main-icon">✏️</span>';
+  mainButton.title = "PromptPilot - Click to expand";
+  mainButton.addEventListener("click", handleMainButtonClick);
 
-  const intentLabel = document.createElement("div");
-  intentLabel.className = "promptpilot-intent-label";
-  intentLabel.textContent = "Intent Category";
+  // Create expanded content (hidden by default)
+  const expandedContent = document.createElement("div");
+  expandedContent.id = "promptpilot-expanded";
+  expandedContent.className = "promptpilot-expanded";
 
-  const dropdownContainer = document.createElement("div");
-  dropdownContainer.className = "promptpilot-dropdown-container";
+  // Create intent selector icon
+  const intentButton = document.createElement("button");
+  intentButton.className = "promptpilot-intent-button";
+  intentButton.innerHTML = '<span class="promptpilot-intent-icon">🎯</span>';
+  intentButton.title = "Select intent category";
+  intentButton.addEventListener("click", handleIntentButtonClick);
 
-  const dropdownTrigger = document.createElement("button");
-  dropdownTrigger.className = "promptpilot-dropdown-trigger";
-  dropdownTrigger.innerHTML = `
-    <span class="promptpilot-dropdown-text">Select intent category</span>
-    <span class="promptpilot-dropdown-arrow">▼</span>
-  `;
+  // Create intent dropdown (hidden by default)
+  const intentDropdown = document.createElement("div");
+  intentDropdown.className = "promptpilot-intent-dropdown";
 
-  const dropdownMenu = document.createElement("ul");
-  dropdownMenu.className = "promptpilot-dropdown-menu";
-  dropdownMenu.style.display = "none";
+  const dropdownList = document.createElement("ul");
+  dropdownList.className = "promptpilot-intent-list";
 
   // Populate dropdown with categories
   INTENT_CATEGORIES.forEach((category) => {
     const item = document.createElement("li");
-    item.className = "promptpilot-dropdown-item";
+    item.className = "promptpilot-intent-item";
     item.textContent = category;
     item.addEventListener("click", () => handleIntentSelect(category));
-    dropdownMenu.appendChild(item);
+    dropdownList.appendChild(item);
   });
 
-  // Add dropdown event listeners
-  dropdownTrigger.addEventListener("click", handleDropdownToggle);
-
-  // Assemble dropdown
-  dropdownContainer.appendChild(dropdownTrigger);
-  dropdownContainer.appendChild(dropdownMenu);
-  intentSelector.appendChild(intentLabel);
-  intentSelector.appendChild(dropdownContainer);
+  intentDropdown.appendChild(dropdownList);
 
   // Create improve button
-  const button = document.createElement("button");
-  button.id = "promptpilot-button";
-  button.className = "promptpilot-button";
-  button.innerHTML = '<span class="promptpilot-icon">✏️</span> Improve Text';
-  button.addEventListener("click", handleImproveClick);
+  const improveButton = document.createElement("button");
+  improveButton.id = "promptpilot-improve-button";
+  improveButton.className = "promptpilot-improve-button";
+  improveButton.innerHTML = '<span class="promptpilot-improve-icon">⚡</span>';
+  improveButton.title = "Improve selected text";
+  improveButton.addEventListener("click", handleImproveClick);
 
-  // Assemble container
-  container.appendChild(intentSelector);
-  container.appendChild(button);
+  // Assemble expanded content
+  expandedContent.appendChild(intentButton);
+  expandedContent.appendChild(intentDropdown);
+  expandedContent.appendChild(improveButton);
+
+  // Assemble main container
+  container.appendChild(mainButton);
+  container.appendChild(expandedContent);
 
   // Add to the page
   document.body.appendChild(container);
@@ -212,7 +217,57 @@ function createFixedButton() {
   // Add click outside listener
   document.addEventListener("click", handleClickOutside);
 
-  console.log("PromptPilot container with intent selector added to page");
+  console.log("PromptPilot minimalistic widget added to page");
+}
+
+/**
+ * Handle main button click to expand/collapse widget
+ */
+function handleMainButtonClick(event: Event) {
+  event.stopPropagation();
+  isWidgetExpanded = !isWidgetExpanded;
+
+  const expandedContent = document.getElementById("promptpilot-expanded");
+  const mainButton = document.getElementById("promptpilot-main-button");
+
+  if (expandedContent && mainButton) {
+    if (isWidgetExpanded) {
+      expandedContent.classList.add("expanded");
+      mainButton.classList.add("expanded");
+    } else {
+      expandedContent.classList.remove("expanded");
+      mainButton.classList.remove("expanded");
+      // Also close intent dropdown if open
+      if (isDropdownOpen) {
+        handleIntentButtonClick(event);
+      }
+    }
+  }
+}
+
+/**
+ * Handle intent button click to show/hide dropdown
+ */
+function handleIntentButtonClick(event: Event) {
+  event.stopPropagation();
+  isDropdownOpen = !isDropdownOpen;
+
+  const intentDropdown = document.querySelector(
+    ".promptpilot-intent-dropdown"
+  ) as HTMLElement;
+  const intentButton = document.querySelector(
+    ".promptpilot-intent-button"
+  ) as HTMLElement;
+
+  if (intentDropdown && intentButton) {
+    if (isDropdownOpen) {
+      intentDropdown.classList.add("open");
+      intentButton.classList.add("active");
+    } else {
+      intentDropdown.classList.remove("open");
+      intentButton.classList.remove("active");
+    }
+  }
 }
 
 /**
@@ -362,35 +417,39 @@ function handleTextSelection(event: MouseEvent) {
 }
 
 /**
- * Show loading state on the button
+ * Show loading state on the improve button
  */
 function showLoadingState() {
-  const button = document.getElementById("promptpilot-button");
-  if (button) {
-    button.className = "promptpilot-button loading";
-    button.innerHTML = '<span class="promptpilot-loader"></span> Improving...';
+  const improveButton = document.getElementById("promptpilot-improve-button");
+  if (improveButton) {
+    improveButton.className = "promptpilot-improve-button loading";
+    improveButton.innerHTML = '<span class="promptpilot-loader"></span>';
+    improveButton.title = "Improving text...";
   }
 }
 
 /**
- * Reset button to original state
+ * Reset improve button to original state
  */
 function resetButtonState() {
-  const button = document.getElementById("promptpilot-button");
-  if (button) {
-    button.className = "promptpilot-button";
-    button.innerHTML = '<span class="promptpilot-icon">✏️</span> Improve Text';
+  const improveButton = document.getElementById("promptpilot-improve-button");
+  if (improveButton) {
+    improveButton.className = "promptpilot-improve-button";
+    improveButton.innerHTML =
+      '<span class="promptpilot-improve-icon">⚡</span>';
+    improveButton.title = "Improve selected text";
   }
 }
 
 /**
- * Show success state on the button
+ * Show success state on the improve button
  */
 function showSuccessState() {
-  const button = document.getElementById("promptpilot-button");
-  if (button) {
-    button.className = "promptpilot-button success";
-    button.innerHTML = '<span class="promptpilot-icon">✓</span> Improved!';
+  const improveButton = document.getElementById("promptpilot-improve-button");
+  if (improveButton) {
+    improveButton.className = "promptpilot-improve-button success";
+    improveButton.innerHTML = '<span class="promptpilot-improve-icon">✓</span>';
+    improveButton.title = "Text improved successfully!";
 
     // Show success notification
     showNotification("Text successfully improved!", "success");
@@ -429,181 +488,293 @@ function showNotification(message: string, type: "success" | "error") {
 function injectStyles() {
   const style = document.createElement("style");
   style.textContent = `
-    /* Container styles */
+    /* Main container - minimalistic floating widget */
     .promptpilot-container {
       position: fixed;
       bottom: 20px;
       right: 20px;
+      z-index: 2147483646;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    
+    /* Main toggle button - always visible circular icon */
+    .promptpilot-main-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2147483647;
+    }
+    
+    .promptpilot-main-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+    }
+    
+    .promptpilot-main-button.expanded {
+      background: linear-gradient(135deg, #ea4335 0%, #fbbc04 100%);
+      transform: rotate(45deg);
+    }
+    
+    .promptpilot-main-icon {
+      font-size: 20px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .promptpilot-main-button.expanded .promptpilot-main-icon {
+      transform: rotate(-45deg);
+    }
+    
+    /* Expanded content container */
+    .promptpilot-expanded {
+      position: absolute;
+      bottom: 60px;
+      right: 0;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      z-index: 2147483646;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(20px) scale(0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
     }
     
-    /* Intent selector styles */
-    .promptpilot-intent-selector {
-      background-color: white;
-      border-radius: 4px;
-      padding: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      min-width: 200px;
+    .promptpilot-expanded.expanded {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
     }
     
-    .promptpilot-intent-label {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 12px;
+    /* Intent selector button */
+    .promptpilot-intent-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #9c27b0 0%, #673ab7 100%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(156, 39, 176, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      align-self: flex-end;
+    }
+    
+    .promptpilot-intent-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+    }
+    
+    .promptpilot-intent-button.active {
+      background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+      transform: scale(1.1);
+    }
+    
+    .promptpilot-intent-icon {
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+    
+    .promptpilot-intent-indicator {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: #4caf50;
+      border-radius: 50%;
+      border: 2px solid white;
+      opacity: 0;
+      transform: scale(0);
+      transition: all 0.3s ease;
+    }
+    
+    .promptpilot-intent-button:has(.promptpilot-intent-indicator) .promptpilot-intent-indicator {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    /* Intent dropdown */
+    .promptpilot-intent-dropdown {
+      position: absolute;
+      bottom: 0;
+      right: 50px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(10px) scale(0.9);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      min-width: 140px;
+      overflow: hidden;
+    }
+    
+    .promptpilot-intent-dropdown.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0) scale(1);
+      pointer-events: auto;
+    }
+    
+    .promptpilot-intent-list {
+      margin: 0;
+      padding: 8px 0;
+      list-style: none;
+    }
+    
+    .promptpilot-intent-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 13px;
       font-weight: 500;
       color: #333;
-      margin-bottom: 4px;
-    }
-    
-    .promptpilot-dropdown-container {
-      position: relative;
-      width: 100%;
-    }
-    
-    .promptpilot-dropdown-trigger {
-      width: 100%;
-      padding: 6px 8px;
-      background-color: white;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      text-align: left;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #333;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    }
-    
-    .promptpilot-dropdown-trigger:hover {
-      border-color: #4285f4;
-      background-color: #f8f9fa;
-    }
-    
-    .promptpilot-dropdown-arrow {
-      transition: transform 0.2s ease;
-      font-size: 10px;
-      color: #666;
-    }
-    
-    .promptpilot-dropdown-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background-color: white;
-      border: 1px solid #ccc;
-      border-top: none;
-      border-radius: 0 0 4px 4px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      z-index: 2147483647;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-    
-    .promptpilot-dropdown-item {
-      padding: 6px 8px;
-      cursor: pointer;
-      font-size: 12px;
-      color: #333;
+      transition: all 0.2s ease;
       border-bottom: 1px solid #f0f0f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     }
     
-    .promptpilot-dropdown-item:last-child {
+    .promptpilot-intent-item:last-child {
       border-bottom: none;
     }
     
-    .promptpilot-dropdown-item:hover {
-      background-color: #f8f9fa;
+    .promptpilot-intent-item:hover {
+      background: linear-gradient(90deg, #f8f9fa 0%, #e8f0fe 100%);
       color: #4285f4;
+      transform: translateX(4px);
     }
-
-    /* Button styles */
-    .promptpilot-button {
-      padding: 10px 15px;
-      background-color: #4285f4;
-      color: white;
+    
+    /* Improve button */
+    .promptpilot-improve-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
       border: none;
-      border-radius: 4px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 14px;
-      font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      transition: background-color 0.2s;
-      min-width: 200px;
       justify-content: center;
+      box-shadow: 0 3px 8px rgba(255, 107, 53, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      align-self: flex-end;
     }
     
-    .promptpilot-button:hover {
-      background-color: #3367d6;
+    .promptpilot-improve-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
     }
     
-    .promptpilot-button.loading {
-      background-color: #9aa0a6;
+    .promptpilot-improve-button.loading {
+      background: linear-gradient(135deg, #9e9e9e 0%, #757575 100%);
       cursor: not-allowed;
+      animation: promptpilot-pulse 1.5s ease-in-out infinite;
     }
     
-    .promptpilot-button.success {
-      background-color: #34A853;
+    .promptpilot-improve-button.success {
+      background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+      animation: promptpilot-success-bounce 0.6s ease;
     }
     
-    .promptpilot-icon {
+    .promptpilot-improve-icon {
       font-size: 16px;
+      transition: transform 0.3s ease;
     }
     
     .promptpilot-loader {
       display: inline-block;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border: 2px solid rgba(255,255,255,0.3);
       border-radius: 50%;
       border-top-color: white;
       animation: promptpilot-spin 1s linear infinite;
-      margin-right: 4px;
     }
     
+    /* Animations */
     @keyframes promptpilot-spin {
       to { transform: rotate(360deg); }
     }
     
-    /* Notification styles */
-    .promptpilot-notification {
-      position: fixed;
-      bottom: 120px;
-      right: 20px;
-      padding: 12px 16px;
-      border-radius: 4px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 14px;
-      max-width: 300px;
-      color: white;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 2147483647;
-      animation: promptpilot-fade-in 0.3s;
+    @keyframes promptpilot-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
     }
     
-    .promptpilot-notification.success {
-      background-color: #34A853;
-    }
-    
-    .promptpilot-notification.error {
-      background-color: #EA4335;
+    @keyframes promptpilot-success-bounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
     }
     
     @keyframes promptpilot-fade-in {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Notification styles */
+    .promptpilot-notification {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 280px;
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 2147483647;
+      animation: promptpilot-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .promptpilot-notification.success {
+      background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+    }
+    
+    .promptpilot-notification.error {
+      background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .promptpilot-container {
+        bottom: 16px;
+        right: 16px;
+      }
+      
+      .promptpilot-main-button {
+        width: 44px;
+        height: 44px;
+      }
+      
+      .promptpilot-intent-button,
+      .promptpilot-improve-button {
+        width: 36px;
+        height: 36px;
+      }
+      
+      .promptpilot-intent-dropdown {
+        min-width: 120px;
+      }
+      
+      .promptpilot-intent-item {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
     }
   `;
 
@@ -627,90 +798,71 @@ function trackTextElement(event: Event) {
 }
 
 /**
- * Handle dropdown toggle
- */
-function handleDropdownToggle(event: Event) {
-  event.stopPropagation();
-  isDropdownOpen = !isDropdownOpen;
-
-  const dropdownMenu = document.querySelector(
-    ".promptpilot-dropdown-menu"
-  ) as HTMLElement;
-  const dropdownArrow = document.querySelector(
-    ".promptpilot-dropdown-arrow"
-  ) as HTMLElement;
-
-  if (dropdownMenu && dropdownArrow) {
-    if (isDropdownOpen) {
-      dropdownMenu.style.display = "block";
-      dropdownArrow.style.transform = "rotate(180deg)";
-    } else {
-      dropdownMenu.style.display = "none";
-      dropdownArrow.style.transform = "rotate(0deg)";
-    }
-  }
-}
-
-/**
  * Handle intent selection
  */
 function handleIntentSelect(intent: string) {
   selectedIntent = intent;
   isDropdownOpen = false;
 
-  const dropdownText = document.querySelector(
-    ".promptpilot-dropdown-text"
+  const intentDropdown = document.querySelector(
+    ".promptpilot-intent-dropdown"
   ) as HTMLElement;
-  const dropdownMenu = document.querySelector(
-    ".promptpilot-dropdown-menu"
-  ) as HTMLElement;
-  const dropdownArrow = document.querySelector(
-    ".promptpilot-dropdown-arrow"
+  const intentButton = document.querySelector(
+    ".promptpilot-intent-button"
   ) as HTMLElement;
 
-  if (dropdownText) {
-    dropdownText.textContent = intent;
+  if (intentDropdown) {
+    intentDropdown.classList.remove("open");
   }
 
-  if (dropdownMenu) {
-    dropdownMenu.style.display = "none";
-  }
-
-  if (dropdownArrow) {
-    dropdownArrow.style.transform = "rotate(0deg)";
+  if (intentButton) {
+    intentButton.classList.remove("active");
+    // Update button to show selected intent with a small indicator
+    intentButton.innerHTML = `<span class="promptpilot-intent-icon">🎯</span><span class="promptpilot-intent-indicator"></span>`;
+    intentButton.title = `Intent: ${intent}`;
   }
 
   console.log("Selected intent:", intent);
 }
 
 /**
- * Handle click outside dropdown
+ * Handle click outside to close dropdowns
  */
 function handleClickOutside(event: Event) {
   const target = event.target as HTMLElement;
-  const dropdownContainer = document.querySelector(
-    ".promptpilot-dropdown-container"
-  );
+  const container = document.getElementById("promptpilot-container");
 
-  if (
-    isDropdownOpen &&
-    dropdownContainer &&
-    !dropdownContainer.contains(target)
-  ) {
-    isDropdownOpen = false;
-    const dropdownMenu = document.querySelector(
-      ".promptpilot-dropdown-menu"
-    ) as HTMLElement;
-    const dropdownArrow = document.querySelector(
-      ".promptpilot-dropdown-arrow"
-    ) as HTMLElement;
+  if (container && !container.contains(target)) {
+    // Close widget if expanded
+    if (isWidgetExpanded) {
+      isWidgetExpanded = false;
+      const expandedContent = document.getElementById("promptpilot-expanded");
+      const mainButton = document.getElementById("promptpilot-main-button");
 
-    if (dropdownMenu) {
-      dropdownMenu.style.display = "none";
+      if (expandedContent) {
+        expandedContent.classList.remove("expanded");
+      }
+      if (mainButton) {
+        mainButton.classList.remove("expanded");
+      }
     }
 
-    if (dropdownArrow) {
-      dropdownArrow.style.transform = "rotate(0deg)";
+    // Close intent dropdown if open
+    if (isDropdownOpen) {
+      isDropdownOpen = false;
+      const intentDropdown = document.querySelector(
+        ".promptpilot-intent-dropdown"
+      ) as HTMLElement;
+      const intentButton = document.querySelector(
+        ".promptpilot-intent-button"
+      ) as HTMLElement;
+
+      if (intentDropdown) {
+        intentDropdown.classList.remove("open");
+      }
+      if (intentButton) {
+        intentButton.classList.remove("active");
+      }
     }
   }
 }

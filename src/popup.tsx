@@ -313,32 +313,37 @@ const Popup: React.FC = () => {
       </div>
 
       <div className="intent-selection">
-        <div className="label">Intent Category</div>
-        <div className="dropdown-container">
+        <div className="intent-selector-container">
           <button
-            className="dropdown-trigger"
+            className={`intent-icon-button ${
+              state.selectedIntent ? "selected" : ""
+            }`}
             onClick={handleDropdownToggle}
             type="button"
+            title={
+              state.selectedIntent
+                ? `Intent: ${state.selectedIntent}`
+                : "Select intent category"
+            }
           >
-            {state.selectedIntent || "Select intent category"}
-            <span
-              className={`dropdown-arrow ${state.isDropdownOpen ? "open" : ""}`}
-            >
-              ▼
-            </span>
+            <span className="intent-icon">🎯</span>
+            {state.selectedIntent && <span className="intent-indicator"></span>}
           </button>
           {state.isDropdownOpen && (
-            <ul className="dropdown-menu">
-              {INTENT_CATEGORIES.map((category) => (
-                <li
-                  key={category}
-                  className="dropdown-item"
-                  onClick={() => handleIntentSelect(category)}
-                >
-                  {category}
-                </li>
-              ))}
-            </ul>
+            <div className="intent-dropdown">
+              <div className="intent-dropdown-header">Select Intent</div>
+              <ul className="intent-dropdown-menu">
+                {INTENT_CATEGORIES.map((category) => (
+                  <li
+                    key={category}
+                    className="intent-dropdown-item"
+                    onClick={() => handleIntentSelect(category)}
+                  >
+                    {category}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </div>
@@ -347,9 +352,10 @@ const Popup: React.FC = () => {
         <button
           onClick={handleImprove}
           disabled={state.isLoading || !state.originalPrompt}
-          className={state.isLoading ? "loading-button" : ""}
+          className={`improve-button ${state.isLoading ? "loading" : ""}`}
         >
-          {state.isLoading ? "Improving..." : "✏️ Improve Prompt"}
+          <span className="improve-icon">{state.isLoading ? "" : "⚡"}</span>
+          {state.isLoading ? "Improving..." : "Improve Prompt"}
           {state.isLoading && <span className="loader"></span>}
         </button>
       </div>
@@ -383,61 +389,6 @@ const Popup: React.FC = () => {
     </div>
   );
 };
-
-// Add some additional CSS for better UI
-const style = document.createElement("style");
-style.textContent = `
-  .subtitle {
-    margin-top: -10px;
-    color: #666;
-    font-size: 14px;
-  }
-  
-  .loading-button {
-    position: relative;
-    background-color: #9aa0a6 !important;
-  }
-  
-  .loader {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 1s ease-in-out infinite;
-    margin-left: 8px;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  
-  .copied-button {
-    background-color: #34A853 !important;
-  }
-  
-  .improved-textarea {
-    border: 1px solid #4285f4;
-    background-color: #f8f9fa;
-  }
-  
-  .error-message {
-    margin: 8px 0;
-    padding: 8px;
-    border-radius: 4px;
-    background-color: #fef7f7;
-    border-left: 3px solid #ea4335;
-  }
-  
-  .footer {
-    margin-top: 16px;
-    font-size: 12px;
-    color: #666;
-    text-align: center;
-  }
-`;
-document.head.appendChild(style);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

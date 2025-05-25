@@ -6,124 +6,356 @@
     <title>PromptPilot</title>
     <style>
       body {
-        width: 400px;
-        min-height: 300px;
+        width: 380px;
+        min-height: 280px;
         margin: 0;
-        padding: 16px;
-        font-family: system-ui, -apple-system, sans-serif;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Arial, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e8f0fe 100%);
       }
+
       .container {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
       }
-      textarea {
-        width: 100%;
-        min-height: 100px;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        resize: vertical;
+
+      h2 {
+        margin: 0 0 4px 0;
+        color: #1a73e8;
+        font-size: 24px;
+        font-weight: 600;
+        text-align: center;
       }
-      .button-row {
-        display: flex;
-        justify-content: space-between;
+
+      .subtitle {
+        margin: 0 0 16px 0;
+        color: #5f6368;
+        font-size: 13px;
+        text-align: center;
+        font-weight: 400;
       }
-      button {
-        padding: 8px 16px;
-        background-color: #4285f4;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
-      }
-      button:hover {
-        background-color: #3367d6;
-      }
-      button:disabled {
-        background-color: #9aa0a6;
-        cursor: not-allowed;
-      }
+
       .label {
         font-weight: 500;
-        margin-bottom: 4px;
-      }
-
-      /* Intent Selection Dropdown Styles */
-      .intent-selection {
-        margin-bottom: 12px;
-      }
-
-      .dropdown-container {
-        position: relative;
-        width: 100%;
-      }
-
-      .dropdown-trigger {
-        width: 100%;
-        padding: 8px 12px;
-        background-color: white;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        cursor: pointer;
+        margin-bottom: 6px;
+        color: #3c4043;
         font-size: 14px;
-        text-align: left;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 80px;
+        padding: 12px;
+        border: 2px solid #e8eaed;
+        border-radius: 8px;
+        resize: vertical;
+        font-family: inherit;
+        font-size: 14px;
+        transition: border-color 0.2s ease;
+        background: white;
+        box-sizing: border-box;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+      }
+
+      textarea:disabled {
+        background-color: #f8f9fa;
+        color: #5f6368;
+      }
+
+      .button-row {
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
-        color: #333;
-        font-weight: normal;
+        gap: 12px;
       }
 
-      .dropdown-trigger:hover {
-        border-color: #4285f4;
-        background-color: #f8f9fa;
+      /* Intent Selection Styles */
+      .intent-selection {
+        display: flex;
+        justify-content: center;
+        margin: 8px 0;
       }
 
-      .dropdown-arrow {
-        transition: transform 0.2s ease;
-        font-size: 12px;
-        color: #666;
+      .intent-selector-container {
+        position: relative;
       }
 
-      .dropdown-arrow.open {
-        transform: rotate(180deg);
+      .intent-icon-button {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #9c27b0 0%, #673ab7 100%);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 3px 8px rgba(156, 39, 176, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
       }
 
-      .dropdown-menu {
+      .intent-icon-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+      }
+
+      .intent-icon-button.selected {
+        background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+      }
+
+      .intent-icon {
+        font-size: 18px;
+        transition: transform 0.3s ease;
+      }
+
+      .intent-indicator {
         position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: white;
-        border: 1px solid #ccc;
-        border-top: none;
-        border-radius: 0 0 4px 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        z-index: 1000;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        max-height: 200px;
-        overflow-y: auto;
+        top: -2px;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        background: #4caf50;
+        border-radius: 50%;
+        border: 2px solid white;
+        animation: intent-indicator-appear 0.3s ease;
       }
 
-      .dropdown-item {
-        padding: 8px 12px;
+      @keyframes intent-indicator-appear {
+        from {
+          transform: scale(0);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .intent-dropdown {
+        position: absolute;
+        top: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        min-width: 160px;
+        overflow: hidden;
+        z-index: 1000;
+        animation: dropdown-appear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      @keyframes dropdown-appear {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-10px) scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0) scale(1);
+        }
+      }
+
+      .intent-dropdown-header {
+        padding: 12px 16px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #5f6368;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e8eaed;
+      }
+
+      .intent-dropdown-menu {
+        margin: 0;
+        padding: 8px 0;
+        list-style: none;
+      }
+
+      .intent-dropdown-item {
+        padding: 10px 16px;
         cursor: pointer;
         font-size: 14px;
-        color: #333;
-        border-bottom: 1px solid #f0f0f0;
+        font-weight: 500;
+        color: #3c4043;
+        transition: all 0.2s ease;
       }
 
-      .dropdown-item:last-child {
-        border-bottom: none;
+      .intent-dropdown-item:hover {
+        background: linear-gradient(90deg, #f8f9fa 0%, #e8f0fe 100%);
+        color: #1a73e8;
+        transform: translateX(4px);
       }
 
-      .dropdown-item:hover {
-        background-color: #f8f9fa;
-        color: #4285f4;
+      /* Improve Button Styles */
+      .improve-button {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
+        color: white;
+        border: none;
+        border-radius: 24px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 3px 8px rgba(26, 115, 232, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 160px;
+        justify-content: center;
+      }
+
+      .improve-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(26, 115, 232, 0.4);
+      }
+
+      .improve-button:disabled {
+        background: linear-gradient(135deg, #9aa0a6 0%, #dadce0 100%);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .improve-button.loading {
+        background: linear-gradient(135deg, #9aa0a6 0%, #dadce0 100%);
+        animation: loading-pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes loading-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.02);
+        }
+      }
+
+      .improve-icon {
+        font-size: 16px;
+        transition: transform 0.3s ease;
+      }
+
+      .loader {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Copy Button */
+      button:not(.improve-button):not(.intent-icon-button) {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #34a853 0%, #4caf50 100%);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 6px rgba(52, 168, 83, 0.3);
+      }
+
+      button:not(.improve-button):not(.intent-icon-button):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(52, 168, 83, 0.4);
+      }
+
+      .copied-button {
+        background: linear-gradient(
+          135deg,
+          #4caf50 0%,
+          #8bc34a 100%
+        ) !important;
+        animation: success-bounce 0.6s ease;
+      }
+
+      @keyframes success-bounce {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      .improved-textarea {
+        border: 2px solid #4285f4 !important;
+        background: linear-gradient(
+          135deg,
+          #f8f9fa 0%,
+          #e8f0fe 100%
+        ) !important;
+      }
+
+      .error-message {
+        margin: 12px 0;
+        padding: 12px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #fef7f7 0%, #fce8e6 100%);
+        border-left: 4px solid #ea4335;
+        font-size: 13px;
+      }
+
+      .error-message p {
+        margin: 0 0 4px 0;
+        color: #d93025;
+        font-weight: 500;
+      }
+
+      .error-message p:last-child {
+        margin: 0;
+        color: #5f6368;
+        font-weight: 400;
+      }
+
+      .footer {
+        margin-top: 20px;
+        font-size: 11px;
+        color: #9aa0a6;
+        text-align: center;
+        font-weight: 400;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 400px) {
+        body {
+          width: 320px;
+          padding: 16px;
+        }
+
+        .intent-icon-button {
+          width: 40px;
+          height: 40px;
+        }
+
+        .improve-button {
+          min-width: 140px;
+          padding: 10px 20px;
+        }
       }
     </style>
     <script type="module" crossorigin src="/index.js"></script>

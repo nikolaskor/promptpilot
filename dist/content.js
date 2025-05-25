@@ -1,181 +1,290 @@
-let p=!1,i=null,x="",a=!1;const w=["Academic","Professional","Creative","Technical","Personal"];function f(){console.log("PromptPilot content script initializing..."),A(),T(),chrome.runtime.onMessage.addListener(E),document.addEventListener("mouseup",N),document.addEventListener("mousedown",g),document.addEventListener("focusin",g),console.log("PromptPilot content script initialized")}function E(t,e,o){if(console.log("Content script received message:",t.type),t.type==="IMPROVED_TEXT_FOR_REPLACEMENT")y(t.text,o);else if(t.type==="IMPROVEMENT_ERROR")h(t.error,o);else if(t.type==="GET_SELECTED_TEXT"){const n=b();console.log("GET_SELECTED_TEXT request received, returning:",n.substring(0,50)+(n.length>50?"...":"")),o({text:n})}return!0}function y(t,e){try{if(console.log("Received improved text for replacement"),!t){l("Received empty text from server","error"),c(),p=!1,e({status:"error"});return}v(t),I(),chrome.storage.session.set({lastImprovedText:t},()=>{console.log("Saved improved text to session storage")}),e({status:"text_updated"})}catch(o){console.error("Error handling improved text:",o),l("Failed to update text with improvements","error"),c(),p=!1,e({status:"error"})}}function h(t,e){console.error("Received improvement error:",t),l(t||"Error improving text","error"),c(),p=!1,e({status:"error_displayed"})}function v(t){const e=window.getSelection();if(e&&!e.isCollapsed){const o=e.getRangeAt(0);o.deleteContents(),o.insertNode(document.createTextNode(t));return}if(i)if(i.tagName==="TEXTAREA"||i.tagName==="INPUT"){const o=i;o.value=t,o.dispatchEvent(new Event("input",{bubbles:!0}))}else i.getAttribute("contenteditable")==="true"&&(i.innerText=t,i.dispatchEvent(new InputEvent("input",{bubbles:!0})));else console.warn("No target element found to insert improved text"),l("Please select text or click in a text field before improving","error")}function T(){const t=document.createElement("div");t.id="promptpilot-container",t.className="promptpilot-container";const e=document.createElement("div");e.className="promptpilot-intent-selector";const o=document.createElement("div");o.className="promptpilot-intent-label",o.textContent="Intent Category";const n=document.createElement("div");n.className="promptpilot-dropdown-container";const r=document.createElement("button");r.className="promptpilot-dropdown-trigger",r.innerHTML=`
-    <span class="promptpilot-dropdown-text">Select intent category</span>
-    <span class="promptpilot-dropdown-arrow">▼</span>
-  `;const d=document.createElement("ul");d.className="promptpilot-dropdown-menu",d.style.display="none",w.forEach(u=>{const m=document.createElement("li");m.className="promptpilot-dropdown-item",m.textContent=u,m.addEventListener("click",()=>M(u)),d.appendChild(m)}),r.addEventListener("click",k),n.appendChild(r),n.appendChild(d),e.appendChild(o),e.appendChild(n);const s=document.createElement("button");s.id="promptpilot-button",s.className="promptpilot-button",s.innerHTML='<span class="promptpilot-icon">✏️</span> Improve Text',s.addEventListener("click",S),t.appendChild(e),t.appendChild(s),document.body.appendChild(t),document.addEventListener("click",P),console.log("PromptPilot container with intent selector added to page")}function S(){if(p){console.log("Improvement already in progress");return}const t=b();if(!t){l("No text found. Please click or focus on a text field.","error");return}console.log("Improving text:",t.substring(0,50)+(t.length>50?"...":"")),p=!0,C(),chrome.storage.session.set({lastCapturedText:t},()=>{console.log("Saved text to session storage")}),chrome.runtime.sendMessage({type:"IMPROVE_AND_REPLACE",text:t,intent:x||"General"},e=>{chrome.runtime.lastError&&(console.error("Error sending improvement request:",chrome.runtime.lastError),l("Failed to communicate with extension. Please try again.","error"),c(),p=!1)})}function b(){var o,n;const t=window.getSelection();if(t&&t.toString().trim()!=="")return t.toString().trim();const e=document.activeElement;if(e){if(e.tagName==="TEXTAREA"||e.tagName==="INPUT"){i=e;const r=e;return r.selectionStart!==void 0&&r.selectionEnd!==void 0&&r.selectionStart!==null&&r.selectionEnd!==null&&r.selectionStart!==r.selectionEnd?r.value.substring(r.selectionStart,r.selectionEnd).trim():r.value.trim()}else if(e.getAttribute("contenteditable")==="true")return i=e,t&&t.toString().trim()!==""?t.toString().trim():((o=e.textContent)==null?void 0:o.trim())||""}if(i){if(i.tagName==="TEXTAREA"||i.tagName==="INPUT")return i.value.trim();if(i.getAttribute("contenteditable")==="true")return((n=i.textContent)==null?void 0:n.trim())||""}return""}function N(t){var o;const e=window.getSelection();if(e&&e.toString().trim()!==""){const n=(o=e.anchorNode)==null?void 0:o.parentElement;n&&(n.tagName==="TEXTAREA"||n.tagName==="INPUT"||n.getAttribute("contenteditable")==="true")&&(i=n)}}function C(){const t=document.getElementById("promptpilot-button");t&&(t.className="promptpilot-button loading",t.innerHTML='<span class="promptpilot-loader"></span> Improving...')}function c(){const t=document.getElementById("promptpilot-button");t&&(t.className="promptpilot-button",t.innerHTML='<span class="promptpilot-icon">✏️</span> Improve Text')}function I(){const t=document.getElementById("promptpilot-button");t&&(t.className="promptpilot-button success",t.innerHTML='<span class="promptpilot-icon">✓</span> Improved!',l("Text successfully improved!","success"),setTimeout(()=>{c(),p=!1},2e3))}function l(t,e){const o=document.createElement("div");o.className=`promptpilot-notification ${e}`,o.textContent=t,document.body.appendChild(o),setTimeout(()=>{o.parentNode&&document.body.removeChild(o)},4e3)}function A(){const t=document.createElement("style");t.textContent=`
-    /* Container styles */
+let p=!1,r=null,x="",a=!1,c=!1;const E=["Academic","Professional","Creative","Technical","Personal"];function g(){console.log("PromptPilot content script initializing..."),B(),I(),chrome.runtime.onMessage.addListener(y),document.addEventListener("mouseup",C),document.addEventListener("mousedown",b),document.addEventListener("focusin",b),console.log("PromptPilot content script initialized")}function y(t,e,o){if(console.log("Content script received message:",t.type),t.type==="IMPROVED_TEXT_FOR_REPLACEMENT")w(t.text,o);else if(t.type==="IMPROVEMENT_ERROR")T(t.error,o);else if(t.type==="GET_SELECTED_TEXT"){const n=h();console.log("GET_SELECTED_TEXT request received, returning:",n.substring(0,50)+(n.length>50?"...":"")),o({text:n})}return!0}function w(t,e){try{if(console.log("Received improved text for replacement"),!t){s("Received empty text from server","error"),d(),p=!1,e({status:"error"});return}N(t),P(),chrome.storage.session.set({lastImprovedText:t},()=>{console.log("Saved improved text to session storage")}),e({status:"text_updated"})}catch(o){console.error("Error handling improved text:",o),s("Failed to update text with improvements","error"),d(),p=!1,e({status:"error"})}}function T(t,e){console.error("Received improvement error:",t),s(t||"Error improving text","error"),d(),p=!1,e({status:"error_displayed"})}function N(t){const e=window.getSelection();if(e&&!e.isCollapsed){const o=e.getRangeAt(0);o.deleteContents(),o.insertNode(document.createTextNode(t));return}if(r)if(r.tagName==="TEXTAREA"||r.tagName==="INPUT"){const o=r;o.value=t,o.dispatchEvent(new Event("input",{bubbles:!0}))}else r.getAttribute("contenteditable")==="true"&&(r.innerText=t,r.dispatchEvent(new InputEvent("input",{bubbles:!0})));else console.warn("No target element found to insert improved text"),s("Please select text or click in a text field before improving","error")}function I(){const t=document.createElement("div");t.id="promptpilot-container",t.className="promptpilot-container";const e=document.createElement("button");e.id="promptpilot-main-button",e.className="promptpilot-main-button",e.innerHTML='<span class="promptpilot-main-icon">✏️</span>',e.title="PromptPilot - Click to expand",e.addEventListener("click",L);const o=document.createElement("div");o.id="promptpilot-expanded",o.className="promptpilot-expanded";const n=document.createElement("button");n.className="promptpilot-intent-button",n.innerHTML='<span class="promptpilot-intent-icon">🎯</span>',n.title="Select intent category",n.addEventListener("click",v);const i=document.createElement("div");i.className="promptpilot-intent-dropdown";const u=document.createElement("ul");u.className="promptpilot-intent-list",E.forEach(f=>{const m=document.createElement("li");m.className="promptpilot-intent-item",m.textContent=f,m.addEventListener("click",()=>A(f)),u.appendChild(m)}),i.appendChild(u);const l=document.createElement("button");l.id="promptpilot-improve-button",l.className="promptpilot-improve-button",l.innerHTML='<span class="promptpilot-improve-icon">⚡</span>',l.title="Improve selected text",l.addEventListener("click",S),o.appendChild(n),o.appendChild(i),o.appendChild(l),t.appendChild(e),t.appendChild(o),document.body.appendChild(t),document.addEventListener("click",M),console.log("PromptPilot minimalistic widget added to page")}function L(t){t.stopPropagation(),c=!c;const e=document.getElementById("promptpilot-expanded"),o=document.getElementById("promptpilot-main-button");e&&o&&(c?(e.classList.add("expanded"),o.classList.add("expanded")):(e.classList.remove("expanded"),o.classList.remove("expanded"),a&&v(t)))}function v(t){t.stopPropagation(),a=!a;const e=document.querySelector(".promptpilot-intent-dropdown"),o=document.querySelector(".promptpilot-intent-button");e&&o&&(a?(e.classList.add("open"),o.classList.add("active")):(e.classList.remove("open"),o.classList.remove("active")))}function S(){if(p){console.log("Improvement already in progress");return}const t=h();if(!t){s("No text found. Please click or focus on a text field.","error");return}console.log("Improving text:",t.substring(0,50)+(t.length>50?"...":"")),p=!0,k(),chrome.storage.session.set({lastCapturedText:t},()=>{console.log("Saved text to session storage")}),chrome.runtime.sendMessage({type:"IMPROVE_AND_REPLACE",text:t,intent:x||"General"},e=>{chrome.runtime.lastError&&(console.error("Error sending improvement request:",chrome.runtime.lastError),s("Failed to communicate with extension. Please try again.","error"),d(),p=!1)})}function h(){var o,n;const t=window.getSelection();if(t&&t.toString().trim()!=="")return t.toString().trim();const e=document.activeElement;if(e){if(e.tagName==="TEXTAREA"||e.tagName==="INPUT"){r=e;const i=e;return i.selectionStart!==void 0&&i.selectionEnd!==void 0&&i.selectionStart!==null&&i.selectionEnd!==null&&i.selectionStart!==i.selectionEnd?i.value.substring(i.selectionStart,i.selectionEnd).trim():i.value.trim()}else if(e.getAttribute("contenteditable")==="true")return r=e,t&&t.toString().trim()!==""?t.toString().trim():((o=e.textContent)==null?void 0:o.trim())||""}if(r){if(r.tagName==="TEXTAREA"||r.tagName==="INPUT")return r.value.trim();if(r.getAttribute("contenteditable")==="true")return((n=r.textContent)==null?void 0:n.trim())||""}return""}function C(t){var o;const e=window.getSelection();if(e&&e.toString().trim()!==""){const n=(o=e.anchorNode)==null?void 0:o.parentElement;n&&(n.tagName==="TEXTAREA"||n.tagName==="INPUT"||n.getAttribute("contenteditable")==="true")&&(r=n)}}function k(){const t=document.getElementById("promptpilot-improve-button");t&&(t.className="promptpilot-improve-button loading",t.innerHTML='<span class="promptpilot-loader"></span>',t.title="Improving text...")}function d(){const t=document.getElementById("promptpilot-improve-button");t&&(t.className="promptpilot-improve-button",t.innerHTML='<span class="promptpilot-improve-icon">⚡</span>',t.title="Improve selected text")}function P(){const t=document.getElementById("promptpilot-improve-button");t&&(t.className="promptpilot-improve-button success",t.innerHTML='<span class="promptpilot-improve-icon">✓</span>',t.title="Text improved successfully!",s("Text successfully improved!","success"),setTimeout(()=>{d(),p=!1},2e3))}function s(t,e){const o=document.createElement("div");o.className=`promptpilot-notification ${e}`,o.textContent=t,document.body.appendChild(o),setTimeout(()=>{o.parentNode&&document.body.removeChild(o)},4e3)}function B(){const t=document.createElement("style");t.textContent=`
+    /* Main container - minimalistic floating widget */
     .promptpilot-container {
       position: fixed;
       bottom: 20px;
       right: 20px;
+      z-index: 2147483646;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    
+    /* Main toggle button - always visible circular icon */
+    .promptpilot-main-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2147483647;
+    }
+    
+    .promptpilot-main-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+    }
+    
+    .promptpilot-main-button.expanded {
+      background: linear-gradient(135deg, #ea4335 0%, #fbbc04 100%);
+      transform: rotate(45deg);
+    }
+    
+    .promptpilot-main-icon {
+      font-size: 20px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .promptpilot-main-button.expanded .promptpilot-main-icon {
+      transform: rotate(-45deg);
+    }
+    
+    /* Expanded content container */
+    .promptpilot-expanded {
+      position: absolute;
+      bottom: 60px;
+      right: 0;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      z-index: 2147483646;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(20px) scale(0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
     }
     
-    /* Intent selector styles */
-    .promptpilot-intent-selector {
-      background-color: white;
-      border-radius: 4px;
-      padding: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      min-width: 200px;
+    .promptpilot-expanded.expanded {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
     }
     
-    .promptpilot-intent-label {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 12px;
+    /* Intent selector button */
+    .promptpilot-intent-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #9c27b0 0%, #673ab7 100%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(156, 39, 176, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      align-self: flex-end;
+    }
+    
+    .promptpilot-intent-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+    }
+    
+    .promptpilot-intent-button.active {
+      background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+      transform: scale(1.1);
+    }
+    
+    .promptpilot-intent-icon {
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+    
+    .promptpilot-intent-indicator {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: #4caf50;
+      border-radius: 50%;
+      border: 2px solid white;
+      opacity: 0;
+      transform: scale(0);
+      transition: all 0.3s ease;
+    }
+    
+    .promptpilot-intent-button:has(.promptpilot-intent-indicator) .promptpilot-intent-indicator {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    /* Intent dropdown */
+    .promptpilot-intent-dropdown {
+      position: absolute;
+      bottom: 0;
+      right: 50px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(10px) scale(0.9);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      min-width: 140px;
+      overflow: hidden;
+    }
+    
+    .promptpilot-intent-dropdown.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0) scale(1);
+      pointer-events: auto;
+    }
+    
+    .promptpilot-intent-list {
+      margin: 0;
+      padding: 8px 0;
+      list-style: none;
+    }
+    
+    .promptpilot-intent-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 13px;
       font-weight: 500;
       color: #333;
-      margin-bottom: 4px;
-    }
-    
-    .promptpilot-dropdown-container {
-      position: relative;
-      width: 100%;
-    }
-    
-    .promptpilot-dropdown-trigger {
-      width: 100%;
-      padding: 6px 8px;
-      background-color: white;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      text-align: left;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #333;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    }
-    
-    .promptpilot-dropdown-trigger:hover {
-      border-color: #4285f4;
-      background-color: #f8f9fa;
-    }
-    
-    .promptpilot-dropdown-arrow {
-      transition: transform 0.2s ease;
-      font-size: 10px;
-      color: #666;
-    }
-    
-    .promptpilot-dropdown-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background-color: white;
-      border: 1px solid #ccc;
-      border-top: none;
-      border-radius: 0 0 4px 4px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      z-index: 2147483647;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-    
-    .promptpilot-dropdown-item {
-      padding: 6px 8px;
-      cursor: pointer;
-      font-size: 12px;
-      color: #333;
+      transition: all 0.2s ease;
       border-bottom: 1px solid #f0f0f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     }
     
-    .promptpilot-dropdown-item:last-child {
+    .promptpilot-intent-item:last-child {
       border-bottom: none;
     }
     
-    .promptpilot-dropdown-item:hover {
-      background-color: #f8f9fa;
+    .promptpilot-intent-item:hover {
+      background: linear-gradient(90deg, #f8f9fa 0%, #e8f0fe 100%);
       color: #4285f4;
+      transform: translateX(4px);
     }
-
-    /* Button styles */
-    .promptpilot-button {
-      padding: 10px 15px;
-      background-color: #4285f4;
-      color: white;
+    
+    /* Improve button */
+    .promptpilot-improve-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
       border: none;
-      border-radius: 4px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 14px;
-      font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      transition: background-color 0.2s;
-      min-width: 200px;
       justify-content: center;
+      box-shadow: 0 3px 8px rgba(255, 107, 53, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      align-self: flex-end;
     }
     
-    .promptpilot-button:hover {
-      background-color: #3367d6;
+    .promptpilot-improve-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
     }
     
-    .promptpilot-button.loading {
-      background-color: #9aa0a6;
+    .promptpilot-improve-button.loading {
+      background: linear-gradient(135deg, #9e9e9e 0%, #757575 100%);
       cursor: not-allowed;
+      animation: promptpilot-pulse 1.5s ease-in-out infinite;
     }
     
-    .promptpilot-button.success {
-      background-color: #34A853;
+    .promptpilot-improve-button.success {
+      background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+      animation: promptpilot-success-bounce 0.6s ease;
     }
     
-    .promptpilot-icon {
+    .promptpilot-improve-icon {
       font-size: 16px;
+      transition: transform 0.3s ease;
     }
     
     .promptpilot-loader {
       display: inline-block;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border: 2px solid rgba(255,255,255,0.3);
       border-radius: 50%;
       border-top-color: white;
       animation: promptpilot-spin 1s linear infinite;
-      margin-right: 4px;
     }
     
+    /* Animations */
     @keyframes promptpilot-spin {
       to { transform: rotate(360deg); }
     }
     
-    /* Notification styles */
-    .promptpilot-notification {
-      position: fixed;
-      bottom: 120px;
-      right: 20px;
-      padding: 12px 16px;
-      border-radius: 4px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 14px;
-      max-width: 300px;
-      color: white;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 2147483647;
-      animation: promptpilot-fade-in 0.3s;
+    @keyframes promptpilot-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
     }
     
-    .promptpilot-notification.success {
-      background-color: #34A853;
-    }
-    
-    .promptpilot-notification.error {
-      background-color: #EA4335;
+    @keyframes promptpilot-success-bounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
     }
     
     @keyframes promptpilot-fade-in {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-  `,document.head.appendChild(t)}function g(t){const e=t.target;e&&(e.tagName==="TEXTAREA"||e.tagName==="INPUT"||e.getAttribute("contenteditable")==="true")&&(console.log("Tracking text element:",e.tagName),i=e)}function k(t){t.stopPropagation(),a=!a;const e=document.querySelector(".promptpilot-dropdown-menu"),o=document.querySelector(".promptpilot-dropdown-arrow");e&&o&&(a?(e.style.display="block",o.style.transform="rotate(180deg)"):(e.style.display="none",o.style.transform="rotate(0deg)"))}function M(t){x=t,a=!1;const e=document.querySelector(".promptpilot-dropdown-text"),o=document.querySelector(".promptpilot-dropdown-menu"),n=document.querySelector(".promptpilot-dropdown-arrow");e&&(e.textContent=t),o&&(o.style.display="none"),n&&(n.style.transform="rotate(0deg)"),console.log("Selected intent:",t)}function P(t){const e=t.target,o=document.querySelector(".promptpilot-dropdown-container");if(a&&o&&!o.contains(e)){a=!1;const n=document.querySelector(".promptpilot-dropdown-menu"),r=document.querySelector(".promptpilot-dropdown-arrow");n&&(n.style.display="none"),r&&(r.style.transform="rotate(0deg)")}}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",f):f();
+    
+    /* Notification styles */
+    .promptpilot-notification {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 280px;
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 2147483647;
+      animation: promptpilot-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .promptpilot-notification.success {
+      background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+    }
+    
+    .promptpilot-notification.error {
+      background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .promptpilot-container {
+        bottom: 16px;
+        right: 16px;
+      }
+      
+      .promptpilot-main-button {
+        width: 44px;
+        height: 44px;
+      }
+      
+      .promptpilot-intent-button,
+      .promptpilot-improve-button {
+        width: 36px;
+        height: 36px;
+      }
+      
+      .promptpilot-intent-dropdown {
+        min-width: 120px;
+      }
+      
+      .promptpilot-intent-item {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+    }
+  `,document.head.appendChild(t)}function b(t){const e=t.target;e&&(e.tagName==="TEXTAREA"||e.tagName==="INPUT"||e.getAttribute("contenteditable")==="true")&&(console.log("Tracking text element:",e.tagName),r=e)}function A(t){x=t,a=!1;const e=document.querySelector(".promptpilot-intent-dropdown"),o=document.querySelector(".promptpilot-intent-button");e&&e.classList.remove("open"),o&&(o.classList.remove("active"),o.innerHTML='<span class="promptpilot-intent-icon">🎯</span><span class="promptpilot-intent-indicator"></span>',o.title=`Intent: ${t}`),console.log("Selected intent:",t)}function M(t){const e=t.target,o=document.getElementById("promptpilot-container");if(o&&!o.contains(e)){if(c){c=!1;const n=document.getElementById("promptpilot-expanded"),i=document.getElementById("promptpilot-main-button");n&&n.classList.remove("expanded"),i&&i.classList.remove("expanded")}if(a){a=!1;const n=document.querySelector(".promptpilot-intent-dropdown"),i=document.querySelector(".promptpilot-intent-button");n&&n.classList.remove("open"),i&&i.classList.remove("active")}}}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",g):g();
