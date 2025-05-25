@@ -173,13 +173,22 @@ function createFixedButton() {
   mainButton.id = "promptpilot-main-button";
   mainButton.className = "promptpilot-main-button";
   mainButton.innerHTML = '<span class="promptpilot-main-icon">✏️</span>';
-  mainButton.title = "PromptPilot - Click to expand, drag to move";
+  mainButton.title = "PromptPilot - Click to expand";
   mainButton.addEventListener("click", handleMainButtonClick);
 
-  // Add drag functionality
-  mainButton.addEventListener("mousedown", handleDragStart);
+  // Create drag handle in the corner
+  const dragHandle = document.createElement("div");
+  dragHandle.className = "promptpilot-drag-handle";
+  dragHandle.title = "Drag to move widget";
+  dragHandle.innerHTML = '<span class="promptpilot-drag-dots">⋮⋮</span>';
+
+  // Add drag functionality only to the drag handle
+  dragHandle.addEventListener("mousedown", handleDragStart);
   document.addEventListener("mousemove", handleDragMove);
   document.addEventListener("mouseup", handleDragEnd);
+
+  // Append drag handle to main button
+  mainButton.appendChild(dragHandle);
 
   // Create expanded content (hidden by default)
   const expandedContent = document.createElement("div");
@@ -548,14 +557,57 @@ function injectStyles() {
     }
     
     .promptpilot-container.dragging .promptpilot-main-button {
-      cursor: grabbing;
       box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
     }
     
     .promptpilot-main-button:hover {
       transform: scale(1.1);
       box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+    }
+    
+    /* Drag handle in corner */
+    .promptpilot-drag-handle {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 16px;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
       cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.2s ease;
+      z-index: 2147483648;
+    }
+    
+    .promptpilot-main-button:hover .promptpilot-drag-handle {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    .promptpilot-drag-handle:hover {
+      background: rgba(255, 255, 255, 1);
+      transform: scale(1.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .promptpilot-drag-handle:active,
+    .promptpilot-container.dragging .promptpilot-drag-handle {
+      cursor: grabbing;
+      background: rgba(255, 255, 255, 1);
+      transform: scale(1.1);
+    }
+    
+    .promptpilot-drag-dots {
+      font-size: 8px;
+      color: #666;
+      line-height: 1;
+      transform: rotate(90deg);
     }
     
     .promptpilot-main-button.expanded {
@@ -911,6 +963,7 @@ function handleClickOutside(event: Event) {
  */
 function handleDragStart(event: MouseEvent) {
   event.preventDefault();
+  event.stopPropagation(); // Prevent button click
 
   const container = document.getElementById("promptpilot-container");
   if (!container) return;
@@ -924,14 +977,9 @@ function handleDragStart(event: MouseEvent) {
   dragStartX = event.clientX;
   dragStartY = event.clientY;
 
-  // Set dragging state after a small delay to distinguish from click
-  setTimeout(() => {
-    if (event.buttons === 1) {
-      // Left mouse button still pressed
-      isDragging = true;
-      container.classList.add("dragging");
-    }
-  }, 100);
+  // Start dragging immediately since we're on the drag handle
+  isDragging = true;
+  container.classList.add("dragging");
 }
 
 /**
@@ -980,10 +1028,8 @@ function handleDragEnd(event: MouseEvent) {
     saveWidgetPosition(currentX, currentY);
   }
 
-  // Reset dragging state after a short delay to prevent click event
-  setTimeout(() => {
-    isDragging = false;
-  }, 50);
+  // Reset dragging state immediately
+  isDragging = false;
 }
 
 /**
