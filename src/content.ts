@@ -10,6 +10,15 @@ let selectedIntent = "";
 let isDropdownOpen = false;
 let isWidgetExpanded = false;
 
+// Drag functionality state
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let initialX = 0;
+let initialY = 0;
+let currentX = 0;
+let currentY = 0;
+
 // Intent categories
 const INTENT_CATEGORIES = [
   "Academic",
@@ -156,13 +165,21 @@ function createFixedButton() {
   container.id = "promptpilot-container";
   container.className = "promptpilot-container";
 
+  // Restore saved position or use default
+  restoreWidgetPosition(container);
+
   // Create main toggle button (always visible)
   const mainButton = document.createElement("button");
   mainButton.id = "promptpilot-main-button";
   mainButton.className = "promptpilot-main-button";
   mainButton.innerHTML = '<span class="promptpilot-main-icon">✏️</span>';
-  mainButton.title = "PromptPilot - Click to expand";
+  mainButton.title = "PromptPilot - Click to expand, drag to move";
   mainButton.addEventListener("click", handleMainButtonClick);
+
+  // Add drag functionality
+  mainButton.addEventListener("mousedown", handleDragStart);
+  document.addEventListener("mousemove", handleDragMove);
+  document.addEventListener("mouseup", handleDragEnd);
 
   // Create expanded content (hidden by default)
   const expandedContent = document.createElement("div");
@@ -217,6 +234,9 @@ function createFixedButton() {
   // Add click outside listener
   document.addEventListener("click", handleClickOutside);
 
+  // Add window resize listener to keep widget in bounds
+  window.addEventListener("resize", handleWindowResize);
+
   console.log("PromptPilot minimalistic widget added to page");
 }
 
@@ -224,6 +244,11 @@ function createFixedButton() {
  * Handle main button click to expand/collapse widget
  */
 function handleMainButtonClick(event: Event) {
+  // Don't expand/collapse if we just finished dragging
+  if (isDragging) {
+    return;
+  }
+
   event.stopPropagation();
   isWidgetExpanded = !isWidgetExpanded;
 
@@ -495,6 +520,13 @@ function injectStyles() {
       right: 20px;
       z-index: 2147483646;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      transition: transform 0.2s ease;
+    }
+    
+    .promptpilot-container.dragging {
+      transform: scale(1.05);
+      z-index: 2147483647;
+      transition: none;
     }
     
     /* Main toggle button - always visible circular icon */
@@ -512,11 +544,18 @@ function injectStyles() {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       z-index: 2147483647;
+      user-select: none;
+    }
+    
+    .promptpilot-container.dragging .promptpilot-main-button {
+      cursor: grabbing;
+      box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
     }
     
     .promptpilot-main-button:hover {
       transform: scale(1.1);
       box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+      cursor: grab;
     }
     
     .promptpilot-main-button.expanded {
@@ -864,6 +903,180 @@ function handleClickOutside(event: Event) {
         intentButton.classList.remove("active");
       }
     }
+  }
+}
+
+/**
+ * Handle drag start
+ */
+function handleDragStart(event: MouseEvent) {
+  event.preventDefault();
+
+  const container = document.getElementById("promptpilot-container");
+  if (!container) return;
+
+  // Get current position
+  const rect = container.getBoundingClientRect();
+  initialX = rect.left;
+  initialY = rect.top;
+
+  // Store mouse position
+  dragStartX = event.clientX;
+  dragStartY = event.clientY;
+
+  // Set dragging state after a small delay to distinguish from click
+  setTimeout(() => {
+    if (event.buttons === 1) {
+      // Left mouse button still pressed
+      isDragging = true;
+      container.classList.add("dragging");
+    }
+  }, 100);
+}
+
+/**
+ * Handle drag move
+ */
+function handleDragMove(event: MouseEvent) {
+  if (!isDragging) return;
+
+  event.preventDefault();
+
+  const container = document.getElementById("promptpilot-container");
+  if (!container) return;
+
+  // Calculate new position
+  currentX = initialX + (event.clientX - dragStartX);
+  currentY = initialY + (event.clientY - dragStartY);
+
+  // Keep widget within viewport bounds
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const containerWidth = 48; // Main button width
+  const containerHeight = 48; // Main button height
+
+  // Constrain to viewport
+  currentX = Math.max(0, Math.min(currentX, viewportWidth - containerWidth));
+  currentY = Math.max(0, Math.min(currentY, viewportHeight - containerHeight));
+
+  // Apply position
+  container.style.left = currentX + "px";
+  container.style.top = currentY + "px";
+  container.style.right = "auto";
+  container.style.bottom = "auto";
+}
+
+/**
+ * Handle drag end
+ */
+function handleDragEnd(event: MouseEvent) {
+  if (!isDragging) return;
+
+  const container = document.getElementById("promptpilot-container");
+  if (container) {
+    container.classList.remove("dragging");
+
+    // Save the current position
+    saveWidgetPosition(currentX, currentY);
+  }
+
+  // Reset dragging state after a short delay to prevent click event
+  setTimeout(() => {
+    isDragging = false;
+  }, 50);
+}
+
+/**
+ * Save widget position to localStorage
+ */
+function saveWidgetPosition(x: number, y: number) {
+  try {
+    const position = { x, y };
+    localStorage.setItem(
+      "promptpilot-widget-position",
+      JSON.stringify(position)
+    );
+  } catch (error) {
+    console.warn("Failed to save widget position:", error);
+  }
+}
+
+/**
+ * Restore widget position from localStorage
+ */
+function restoreWidgetPosition(container: HTMLElement) {
+  try {
+    const savedPosition = localStorage.getItem("promptpilot-widget-position");
+    if (savedPosition) {
+      const position = JSON.parse(savedPosition);
+
+      // Validate position is within current viewport
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const containerWidth = 48;
+      const containerHeight = 48;
+
+      const x = Math.max(
+        0,
+        Math.min(position.x, viewportWidth - containerWidth)
+      );
+      const y = Math.max(
+        0,
+        Math.min(position.y, viewportHeight - containerHeight)
+      );
+
+      // Apply saved position
+      container.style.left = x + "px";
+      container.style.top = y + "px";
+      container.style.right = "auto";
+      container.style.bottom = "auto";
+
+      // Update current position variables
+      currentX = x;
+      currentY = y;
+    }
+  } catch (error) {
+    console.warn("Failed to restore widget position:", error);
+    // Fall back to default positioning (CSS will handle this)
+  }
+}
+
+/**
+ * Handle window resize to keep widget within bounds
+ */
+function handleWindowResize() {
+  const container = document.getElementById("promptpilot-container");
+  if (!container) return;
+
+  // Only adjust if widget has been moved from default position
+  const hasCustomPosition = container.style.left || container.style.top;
+  if (!hasCustomPosition) return;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const containerWidth = 48;
+  const containerHeight = 48;
+
+  // Get current position
+  const rect = container.getBoundingClientRect();
+  let newX = rect.left;
+  let newY = rect.top;
+
+  // Constrain to new viewport
+  newX = Math.max(0, Math.min(newX, viewportWidth - containerWidth));
+  newY = Math.max(0, Math.min(newY, viewportHeight - containerHeight));
+
+  // Apply new position if it changed
+  if (newX !== rect.left || newY !== rect.top) {
+    container.style.left = newX + "px";
+    container.style.top = newY + "px";
+
+    // Update current position variables
+    currentX = newX;
+    currentY = newY;
+
+    // Save the new position
+    saveWidgetPosition(newX, newY);
   }
 }
 
