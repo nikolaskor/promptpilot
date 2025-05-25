@@ -6,6 +6,17 @@
 // State tracking
 let isImprovementInProgress = false;
 let lastTextElement: HTMLElement | null = null;
+let selectedIntent = "";
+let isDropdownOpen = false;
+
+// Intent categories
+const INTENT_CATEGORIES = [
+  "Academic",
+  "Professional",
+  "Creative",
+  "Technical",
+  "Personal",
+];
 
 // Initialize the content script
 function initialize() {
@@ -136,21 +147,72 @@ function insertImprovedText(newText: string) {
 }
 
 /**
- * Create the fixed position improve button
+ * Create the fixed position improve button with intent selector
  */
 function createFixedButton() {
+  // Create container
+  const container = document.createElement("div");
+  container.id = "promptpilot-container";
+  container.className = "promptpilot-container";
+
+  // Create intent selector
+  const intentSelector = document.createElement("div");
+  intentSelector.className = "promptpilot-intent-selector";
+
+  const intentLabel = document.createElement("div");
+  intentLabel.className = "promptpilot-intent-label";
+  intentLabel.textContent = "Intent Category";
+
+  const dropdownContainer = document.createElement("div");
+  dropdownContainer.className = "promptpilot-dropdown-container";
+
+  const dropdownTrigger = document.createElement("button");
+  dropdownTrigger.className = "promptpilot-dropdown-trigger";
+  dropdownTrigger.innerHTML = `
+    <span class="promptpilot-dropdown-text">Select intent category</span>
+    <span class="promptpilot-dropdown-arrow">▼</span>
+  `;
+
+  const dropdownMenu = document.createElement("ul");
+  dropdownMenu.className = "promptpilot-dropdown-menu";
+  dropdownMenu.style.display = "none";
+
+  // Populate dropdown with categories
+  INTENT_CATEGORIES.forEach((category) => {
+    const item = document.createElement("li");
+    item.className = "promptpilot-dropdown-item";
+    item.textContent = category;
+    item.addEventListener("click", () => handleIntentSelect(category));
+    dropdownMenu.appendChild(item);
+  });
+
+  // Add dropdown event listeners
+  dropdownTrigger.addEventListener("click", handleDropdownToggle);
+
+  // Assemble dropdown
+  dropdownContainer.appendChild(dropdownTrigger);
+  dropdownContainer.appendChild(dropdownMenu);
+  intentSelector.appendChild(intentLabel);
+  intentSelector.appendChild(dropdownContainer);
+
+  // Create improve button
   const button = document.createElement("button");
   button.id = "promptpilot-button";
   button.className = "promptpilot-button";
   button.innerHTML = '<span class="promptpilot-icon">✏️</span> Improve Text';
-
-  // Add click listener
   button.addEventListener("click", handleImproveClick);
 
-  // Add to the page
-  document.body.appendChild(button);
+  // Assemble container
+  container.appendChild(intentSelector);
+  container.appendChild(button);
 
-  console.log("PromptPilot button added to page");
+  // Add to the page
+  document.body.appendChild(container);
+
+  // Add click outside listener
+  document.addEventListener("click", handleClickOutside);
+
+  console.log("PromptPilot container with intent selector added to page");
 }
 
 /**
@@ -189,7 +251,11 @@ function handleImproveClick() {
 
   // Send to background script for improvement
   chrome.runtime.sendMessage(
-    { type: "IMPROVE_AND_REPLACE", text: text },
+    {
+      type: "IMPROVE_AND_REPLACE",
+      text: text,
+      intent: selectedIntent || "General",
+    },
     (response) => {
       if (chrome.runtime.lastError) {
         console.error(
@@ -363,11 +429,104 @@ function showNotification(message: string, type: "success" | "error") {
 function injectStyles() {
   const style = document.createElement("style");
   style.textContent = `
-    /* Button styles */
-    .promptpilot-button {
+    /* Container styles */
+    .promptpilot-container {
       position: fixed;
       bottom: 20px;
       right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2147483646;
+    }
+    
+    /* Intent selector styles */
+    .promptpilot-intent-selector {
+      background-color: white;
+      border-radius: 4px;
+      padding: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      min-width: 200px;
+    }
+    
+    .promptpilot-intent-label {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    
+    .promptpilot-dropdown-container {
+      position: relative;
+      width: 100%;
+    }
+    
+    .promptpilot-dropdown-trigger {
+      width: 100%;
+      padding: 6px 8px;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    
+    .promptpilot-dropdown-trigger:hover {
+      border-color: #4285f4;
+      background-color: #f8f9fa;
+    }
+    
+    .promptpilot-dropdown-arrow {
+      transition: transform 0.2s ease;
+      font-size: 10px;
+      color: #666;
+    }
+    
+    .promptpilot-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      z-index: 2147483647;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    
+    .promptpilot-dropdown-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #333;
+      border-bottom: 1px solid #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    
+    .promptpilot-dropdown-item:last-child {
+      border-bottom: none;
+    }
+    
+    .promptpilot-dropdown-item:hover {
+      background-color: #f8f9fa;
+      color: #4285f4;
+    }
+
+    /* Button styles */
+    .promptpilot-button {
       padding: 10px 15px;
       background-color: #4285f4;
       color: white;
@@ -381,8 +540,9 @@ function injectStyles() {
       align-items: center;
       gap: 6px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 2147483646;
       transition: background-color 0.2s;
+      min-width: 200px;
+      justify-content: center;
     }
     
     .promptpilot-button:hover {
@@ -420,7 +580,7 @@ function injectStyles() {
     /* Notification styles */
     .promptpilot-notification {
       position: fixed;
-      bottom: 80px;
+      bottom: 120px;
       right: 20px;
       padding: 12px 16px;
       border-radius: 4px;
@@ -463,6 +623,95 @@ function trackTextElement(event: Event) {
   ) {
     console.log("Tracking text element:", target.tagName);
     lastTextElement = target;
+  }
+}
+
+/**
+ * Handle dropdown toggle
+ */
+function handleDropdownToggle(event: Event) {
+  event.stopPropagation();
+  isDropdownOpen = !isDropdownOpen;
+
+  const dropdownMenu = document.querySelector(
+    ".promptpilot-dropdown-menu"
+  ) as HTMLElement;
+  const dropdownArrow = document.querySelector(
+    ".promptpilot-dropdown-arrow"
+  ) as HTMLElement;
+
+  if (dropdownMenu && dropdownArrow) {
+    if (isDropdownOpen) {
+      dropdownMenu.style.display = "block";
+      dropdownArrow.style.transform = "rotate(180deg)";
+    } else {
+      dropdownMenu.style.display = "none";
+      dropdownArrow.style.transform = "rotate(0deg)";
+    }
+  }
+}
+
+/**
+ * Handle intent selection
+ */
+function handleIntentSelect(intent: string) {
+  selectedIntent = intent;
+  isDropdownOpen = false;
+
+  const dropdownText = document.querySelector(
+    ".promptpilot-dropdown-text"
+  ) as HTMLElement;
+  const dropdownMenu = document.querySelector(
+    ".promptpilot-dropdown-menu"
+  ) as HTMLElement;
+  const dropdownArrow = document.querySelector(
+    ".promptpilot-dropdown-arrow"
+  ) as HTMLElement;
+
+  if (dropdownText) {
+    dropdownText.textContent = intent;
+  }
+
+  if (dropdownMenu) {
+    dropdownMenu.style.display = "none";
+  }
+
+  if (dropdownArrow) {
+    dropdownArrow.style.transform = "rotate(0deg)";
+  }
+
+  console.log("Selected intent:", intent);
+}
+
+/**
+ * Handle click outside dropdown
+ */
+function handleClickOutside(event: Event) {
+  const target = event.target as HTMLElement;
+  const dropdownContainer = document.querySelector(
+    ".promptpilot-dropdown-container"
+  );
+
+  if (
+    isDropdownOpen &&
+    dropdownContainer &&
+    !dropdownContainer.contains(target)
+  ) {
+    isDropdownOpen = false;
+    const dropdownMenu = document.querySelector(
+      ".promptpilot-dropdown-menu"
+    ) as HTMLElement;
+    const dropdownArrow = document.querySelector(
+      ".promptpilot-dropdown-arrow"
+    ) as HTMLElement;
+
+    if (dropdownMenu) {
+      dropdownMenu.style.display = "none";
+    }
+
+    if (dropdownArrow) {
+      dropdownArrow.style.transform = "rotate(0deg)";
+    }
   }
 }
 
