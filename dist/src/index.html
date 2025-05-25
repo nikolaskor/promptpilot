@@ -49,6 +49,82 @@
         font-weight: 500;
         margin-bottom: 4px;
       }
+
+      /* Intent Selection Dropdown Styles */
+      .intent-selection {
+        margin-bottom: 12px;
+      }
+
+      .dropdown-container {
+        position: relative;
+        width: 100%;
+      }
+
+      .dropdown-trigger {
+        width: 100%;
+        padding: 8px 12px;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        text-align: left;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #333;
+        font-weight: normal;
+      }
+
+      .dropdown-trigger:hover {
+        border-color: #4285f4;
+        background-color: #f8f9fa;
+      }
+
+      .dropdown-arrow {
+        transition: transform 0.2s ease;
+        font-size: 12px;
+        color: #666;
+      }
+
+      .dropdown-arrow.open {
+        transform: rotate(180deg);
+      }
+
+      .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .dropdown-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .dropdown-item:last-child {
+        border-bottom: none;
+      }
+
+      .dropdown-item:hover {
+        background-color: #f8f9fa;
+        color: #4285f4;
+      }
     </style>
     <script type="module" crossorigin src="/index.js"></script>
   </head>

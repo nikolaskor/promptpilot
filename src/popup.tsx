@@ -7,7 +7,17 @@ type PopupState = {
   isLoading: boolean;
   error: string | null;
   isCopied: boolean;
+  selectedIntent: string;
+  isDropdownOpen: boolean;
 };
+
+const INTENT_CATEGORIES = [
+  "Academic",
+  "Professional",
+  "Creative",
+  "Technical",
+  "Personal",
+];
 
 const Popup: React.FC = () => {
   const [state, setState] = useState<PopupState>({
@@ -16,6 +26,8 @@ const Popup: React.FC = () => {
     isLoading: false,
     error: null,
     isCopied: false,
+    selectedIntent: "",
+    isDropdownOpen: false,
   });
 
   useEffect(() => {
@@ -171,6 +183,24 @@ const Popup: React.FC = () => {
     }
   }, [state.isCopied]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (state.isDropdownOpen && !target.closest(".dropdown-container")) {
+        setState((prev) => ({ ...prev, isDropdownOpen: false }));
+      }
+    };
+
+    if (state.isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [state.isDropdownOpen]);
+
   const handleImprove = () => {
     setState((prev) => ({
       ...prev,
@@ -213,6 +243,18 @@ const Popup: React.FC = () => {
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setState((prev) => ({ ...prev, originalPrompt: e.target.value }));
+  };
+
+  const handleDropdownToggle = () => {
+    setState((prev) => ({ ...prev, isDropdownOpen: !prev.isDropdownOpen }));
+  };
+
+  const handleIntentSelect = (intent: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedIntent: intent,
+      isDropdownOpen: false,
+    }));
   };
 
   const renderErrorMessage = () => {
@@ -268,6 +310,37 @@ const Popup: React.FC = () => {
           placeholder="Your original prompt text will appear here"
           disabled={state.isLoading}
         />
+      </div>
+
+      <div className="intent-selection">
+        <div className="label">Intent Category</div>
+        <div className="dropdown-container">
+          <button
+            className="dropdown-trigger"
+            onClick={handleDropdownToggle}
+            type="button"
+          >
+            {state.selectedIntent || "Select intent category"}
+            <span
+              className={`dropdown-arrow ${state.isDropdownOpen ? "open" : ""}`}
+            >
+              ▼
+            </span>
+          </button>
+          {state.isDropdownOpen && (
+            <ul className="dropdown-menu">
+              {INTENT_CATEGORIES.map((category) => (
+                <li
+                  key={category}
+                  className="dropdown-item"
+                  onClick={() => handleIntentSelect(category)}
+                >
+                  {category}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div className="button-row">
