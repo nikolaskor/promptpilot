@@ -3,6 +3,9 @@
  * Handles communication between content script, popup, and backend
  */
 
+import { AnalyticsStorage } from "./utils/storage";
+import { PromptImprovement } from "./types/analytics";
+
 // Backend URL for the improve endpoint
 const BACKEND_URL = "http://localhost:4001";
 
@@ -66,6 +69,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle IMPROVE_AND_REPLACE message
   if (request.type === "IMPROVE_AND_REPLACE") {
     const text = request.text;
+    const intent = request.intent || "general";
+    const platform = request.platform || "unknown";
+
     console.log(
       "IMPROVE_AND_REPLACE: Received text to improve, length:",
       text.length
@@ -75,109 +81,210 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sender.tab ? sender.tab.id : "undefined"
     );
 
-    // Let the content script know we're processing
-    sendResponse({ status: "processing" });
-    console.log(
-      "IMPROVE_AND_REPLACE: Sent processing response to content script"
-    );
+    // Check usage limits before processing
+    AnalyticsStorage.hasReachedLimit()
+      .then(async (hasReachedLimit) => {
+        if (hasReachedLimit) {
+          const remaining = await AnalyticsStorage.getRemainingImprovements();
+          const settings = await AnalyticsStorage.getUserSettings();
 
-    improvePrompt(text)
-      .then((improvedText) => {
-        console.log("Successfully improved prompt, sending for replacement");
-        console.log("Improved prompt:", improvedText.substring(0, 100) + "...");
+          console.log("User has reached monthly limit");
 
-        // Send improved text back to content script for replacement
-        if (sender.tab && typeof sender.tab.id === "number") {
-          const tabId = sender.tab.id;
-          console.log("Sending improved text to tab ID:", tabId);
+          // Send limit reached error to content script
+          if (sender.tab && typeof sender.tab.id === "number") {
+            chrome.tabs.sendMessage(sender.tab.id, {
+              type: "USAGE_LIMIT_REACHED",
+              remaining: remaining,
+              limit: settings.monthlyLimit,
+              subscriptionStatus: settings.subscriptionStatus,
+            });
+          }
 
-          // Use a more reliable approach with the chrome.tabs API
-          chrome.tabs.sendMessage(
-            tabId,
-            {
-              type: "IMPROVED_TEXT_FOR_REPLACEMENT",
-              text: improvedText,
-            },
-            (response) => {
-              const lastError = chrome.runtime.lastError;
-              if (lastError) {
-                console.error(
-                  "Error sending improved text to content script:",
-                  lastError.message
-                );
-
-                // Try again with a delay in case of timing issues
-                setTimeout(() => {
-                  chrome.tabs.sendMessage(
-                    tabId,
-                    {
-                      type: "IMPROVED_TEXT_FOR_REPLACEMENT",
-                      text: improvedText,
-                    },
-                    (retryResponse) => {
-                      const retryError = chrome.runtime.lastError;
-                      if (retryError) {
-                        console.error(
-                          "Retry failed, error sending improved text:",
-                          retryError.message
-                        );
-                      } else {
-                        console.log(
-                          "Retry successful, content script updated text:",
-                          retryResponse
-                        );
-                      }
-                    }
-                  );
-                }, 500);
-              } else {
-                console.log(
-                  "Content script updated text successfully:",
-                  response
-                );
-              }
-            }
-          );
-        } else {
-          console.error(
-            "Cannot send improved text: sender.tab or sender.tab.id is undefined",
-            sender
-          );
+          sendResponse({
+            status: "limit_reached",
+            remaining,
+            limit: settings.monthlyLimit,
+          });
+          return;
         }
-      })
-      .catch((error) => {
-        console.error("Error improving prompt:", error);
-        console.error(
-          "Full error object:",
-          JSON.stringify(error, Object.getOwnPropertyNames(error))
+
+        // Let the content script know we're processing
+        sendResponse({ status: "processing" });
+        console.log(
+          "IMPROVE_AND_REPLACE: Sent processing response to content script"
         );
 
-        // Send error back to content script
-        if (sender.tab && typeof sender.tab.id === "number") {
-          const tabId = sender.tab.id;
-          chrome.tabs.sendMessage(
-            tabId,
-            {
-              type: "IMPROVEMENT_ERROR",
-              error:
-                error.message || "Failed to improve prompt. Please try again.",
-            },
-            (response) => {
-              const lastError = chrome.runtime.lastError;
-              if (lastError) {
-                console.error(
-                  "Error sending error to content script:",
-                  lastError.message
-                );
-              }
+        // Track the improvement attempt
+        const startTime = Date.now();
+
+        improvePrompt(text)
+          .then(async (improvedText) => {
+            const endTime = Date.now();
+            const processingTime = endTime - startTime;
+
+            console.log(
+              "Successfully improved prompt, sending for replacement"
+            );
+            console.log(
+              "Improved prompt:",
+              improvedText.substring(0, 100) + "..."
+            );
+
+            // Track successful improvement
+            try {
+              await AnalyticsStorage.incrementUsage();
+
+              const improvement: PromptImprovement = {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                originalPrompt: text,
+                improvedPrompt: improvedText,
+                intent: intent,
+                timestamp: new Date(),
+                modelUsed: "backend-api", // This could be made dynamic based on backend response
+                originalLength: text.length,
+                improvedLength: improvedText.length,
+                platform: platform,
+                processingTimeMs: processingTime,
+                success: true,
+              };
+
+              await AnalyticsStorage.savePromptImprovement(improvement);
+              console.log("Analytics tracked successfully");
+            } catch (analyticsError) {
+              console.error("Error tracking analytics:", analyticsError);
+              // Don't fail the main operation if analytics fails
             }
-          );
-        } else {
-          console.error(
-            "Cannot send error: sender.tab or sender.tab.id is undefined",
-            sender
-          );
-        }
+
+            // Send improved text back to content script for replacement
+            if (sender.tab && typeof sender.tab.id === "number") {
+              const tabId = sender.tab.id;
+              console.log("Sending improved text to tab ID:", tabId);
+
+              // Use a more reliable approach with the chrome.tabs API
+              chrome.tabs.sendMessage(
+                tabId,
+                {
+                  type: "IMPROVED_TEXT_FOR_REPLACEMENT",
+                  text: improvedText,
+                },
+                (response) => {
+                  const lastError = chrome.runtime.lastError;
+                  if (lastError) {
+                    console.error(
+                      "Error sending improved text to content script:",
+                      lastError.message
+                    );
+
+                    // Try again with a delay in case of timing issues
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(
+                        tabId,
+                        {
+                          type: "IMPROVED_TEXT_FOR_REPLACEMENT",
+                          text: improvedText,
+                        },
+                        (retryResponse) => {
+                          const retryError = chrome.runtime.lastError;
+                          if (retryError) {
+                            console.error(
+                              "Retry failed, error sending improved text:",
+                              retryError.message
+                            );
+                          } else {
+                            console.log(
+                              "Retry successful, content script updated text:",
+                              retryResponse
+                            );
+                          }
+                        }
+                      );
+                    }, 500);
+                  } else {
+                    console.log(
+                      "Content script updated text successfully:",
+                      response
+                    );
+                  }
+                }
+              );
+            } else {
+              console.error(
+                "Cannot send improved text: sender.tab or sender.tab.id is undefined",
+                sender
+              );
+            }
+          })
+          .catch(async (error) => {
+            const endTime = Date.now();
+            const processingTime = endTime - startTime;
+
+            console.error("Error improving prompt:", error);
+            console.error(
+              "Full error object:",
+              JSON.stringify(error, Object.getOwnPropertyNames(error))
+            );
+
+            // Track failed improvement
+            try {
+              const improvement: PromptImprovement = {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                originalPrompt: text,
+                improvedPrompt: "",
+                intent: intent,
+                timestamp: new Date(),
+                modelUsed: "backend-api",
+                originalLength: text.length,
+                improvedLength: 0,
+                platform: platform,
+                processingTimeMs: processingTime,
+                success: false,
+                errorMessage: error.message || "Unknown error",
+              };
+
+              await AnalyticsStorage.savePromptImprovement(improvement);
+              console.log("Failed improvement analytics tracked");
+            } catch (analyticsError) {
+              console.error(
+                "Error tracking failed improvement analytics:",
+                analyticsError
+              );
+            }
+
+            // Send error back to content script
+            if (sender.tab && typeof sender.tab.id === "number") {
+              const tabId = sender.tab.id;
+              chrome.tabs.sendMessage(
+                tabId,
+                {
+                  type: "IMPROVEMENT_ERROR",
+                  error:
+                    error.message ||
+                    "Failed to improve prompt. Please try again.",
+                },
+                (response) => {
+                  const lastError = chrome.runtime.lastError;
+                  if (lastError) {
+                    console.error(
+                      "Error sending error to content script:",
+                      lastError.message
+                    );
+                  }
+                }
+              );
+            } else {
+              console.error(
+                "Cannot send error: sender.tab or sender.tab.id is undefined",
+                sender
+              );
+            }
+          });
+      })
+      .catch((error) => {
+        console.error("Error checking usage limits:", error);
+        sendResponse({
+          status: "error",
+          error: "Failed to check usage limits",
+        });
       });
 
     return true; // Keep the message channel open
@@ -220,6 +327,63 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     checkBackendHealth()
       .then((isHealthy) => {
         sendResponse({ status: isHealthy ? "healthy" : "unhealthy" });
+      })
+      .catch((error) => {
+        sendResponse({ status: "error", error: error.message });
+      });
+    return true;
+  }
+
+  // Handle analytics requests
+  if (request.type === "GET_USER_SETTINGS") {
+    AnalyticsStorage.getUserSettings()
+      .then((settings) => {
+        sendResponse({ status: "success", data: settings });
+      })
+      .catch((error) => {
+        sendResponse({ status: "error", error: error.message });
+      });
+    return true;
+  }
+
+  if (request.type === "GET_USAGE_ANALYTICS") {
+    AnalyticsStorage.getUsageAnalytics()
+      .then((analytics) => {
+        sendResponse({ status: "success", data: analytics });
+      })
+      .catch((error) => {
+        sendResponse({ status: "error", error: error.message });
+      });
+    return true;
+  }
+
+  if (request.type === "GET_PROMPT_HISTORY") {
+    const limit = request.limit || 50;
+    AnalyticsStorage.getPromptHistory(limit)
+      .then((history) => {
+        sendResponse({ status: "success", data: history });
+      })
+      .catch((error) => {
+        sendResponse({ status: "error", error: error.message });
+      });
+    return true;
+  }
+
+  if (request.type === "UPDATE_USER_SETTINGS") {
+    AnalyticsStorage.updateUserSettings(request.updates)
+      .then((settings) => {
+        sendResponse({ status: "success", data: settings });
+      })
+      .catch((error) => {
+        sendResponse({ status: "error", error: error.message });
+      });
+    return true;
+  }
+
+  if (request.type === "GET_REMAINING_IMPROVEMENTS") {
+    AnalyticsStorage.getRemainingImprovements()
+      .then((remaining) => {
+        sendResponse({ status: "success", data: remaining });
       })
       .catch((error) => {
         sendResponse({ status: "error", error: error.message });

@@ -274,6 +274,8 @@ function handleMessages(message: any, sender: any, sendResponse: any) {
     handleImprovedText(message.text, sendResponse);
   } else if (message.type === "IMPROVEMENT_ERROR") {
     handleError(message.error, sendResponse);
+  } else if (message.type === "USAGE_LIMIT_REACHED") {
+    handleUsageLimitReached(message, sendResponse);
   } else if (message.type === "GET_SELECTED_TEXT") {
     const selectedText = getSelectedText();
     console.log(
@@ -331,6 +333,26 @@ function handleError(error: string, sendResponse: Function) {
   resetButtonState();
   isImprovementInProgress = false;
   sendResponse({ status: "error_displayed" });
+}
+
+/**
+ * Handle usage limit reached message
+ */
+function handleUsageLimitReached(message: any, sendResponse: Function) {
+  console.log("Usage limit reached:", message);
+
+  const { remaining, limit, subscriptionStatus } = message;
+
+  let errorMessage = `Monthly limit reached (${limit} improvements/month).`;
+
+  if (subscriptionStatus === "free") {
+    errorMessage += " Upgrade to Premium for unlimited improvements.";
+  }
+
+  showNotification(errorMessage, "error");
+  resetButtonState();
+  isImprovementInProgress = false;
+  sendResponse({ status: "limit_displayed" });
 }
 
 /**
@@ -703,6 +725,7 @@ function handleImproveClick() {
       type: "IMPROVE_AND_REPLACE",
       text: text,
       intent: selectedIntent || "General",
+      platform: currentPlatform,
     },
     (response) => {
       if (chrome.runtime.lastError) {
