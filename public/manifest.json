@@ -26,7 +26,14 @@
         "*://*.cohere.com/*",
         "*://*.deepinfra.com/*",
         "*://*.replicate.com/*",
-        "*://*.chatgpt.com/*"
+        "*://*.chatgpt.com/*",
+        "*://*.grok.com/*",
+        "*://*.x.ai/*",
+        "*://*.deepseek.com/*",
+        "*://*.deepseek.ai/*",
+        "*://*.mistral.ai/*",
+        "*://chat.mistral.ai/*",
+        "*://chat.deepseek.com/*"
       ],
       "js": ["content.js"]
     }

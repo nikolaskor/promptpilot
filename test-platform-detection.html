@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptPilot Multi-Platform Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .test-section h3 {
+        margin-top: 0;
+        color: #333;
+      }
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      .contenteditable {
+        width: 100%;
+        min-height: 80px;
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        background: white;
+      }
+      .platform-info {
+        background: #f0f8ff;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+      .instructions {
+        background: #fff3cd;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+      .test-results {
+        background: #d4edda;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PromptPilot Multi-Platform Test</h1>
+
+    <div class="instructions">
+      <h3>Testing Instructions:</h3>
+      <ol>
+        <li>Load the PromptPilot extension in Chrome (Developer mode)</li>
+        <li>
+          Open this page with different hostnames to test platform detection
+        </li>
+        <li>
+          Try typing in the text fields below and use the PromptPilot widget
+        </li>
+        <li>Check the browser console for platform detection logs</li>
+      </ol>
+    </div>
+
+    <div class="platform-info">
+      <h3>Current Platform Detection:</h3>
+      <p><strong>Hostname:</strong> <span id="hostname"></span></p>
+      <p>
+        <strong>Expected Platform:</strong> <span id="expected-platform"></span>
+      </p>
+      <p><em>Check browser console for actual platform detection logs</em></p>
+    </div>
+
+    <div class="test-section">
+      <h3>Standard Textarea (Universal Support)</h3>
+      <textarea
+        placeholder="Type your prompt here to test universal text detection..."
+      >
+This is a sample prompt that needs improvement. Please make it more professional and detailed.</textarea
+      >
+    </div>
+
+    <div class="test-section">
+      <h3>Text Input Field</h3>
+      <input
+        type="text"
+        placeholder="Enter a short prompt here..."
+        value="Quick test prompt"
+      />
+    </div>
+
+    <div class="test-section">
+      <h3>ContentEditable Div (Claude/Anthropic Style)</h3>
+      <div
+        class="contenteditable"
+        contenteditable="true"
+        role="textbox"
+        data-testid="chat-input"
+      >
+        Click here and type your message for Claude-style testing...
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h3>OpenAI/ChatGPT Style Input</h3>
+      <textarea data-id="prompt-textarea" placeholder="Message ChatGPT...">
+Test prompt for ChatGPT-style interface</textarea
+      >
+    </div>
+
+    <div class="test-section">
+      <h3>Grok/X.ai Style Input</h3>
+      <div
+        class="contenteditable"
+        contenteditable="true"
+        role="textbox"
+        data-testid="compose-text"
+      >
+        Ask Grok anything...
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h3>DeepSeek/Mistral Style Input</h3>
+      <textarea placeholder="Send a message to the AI..." class="chat-input">
+How can I improve my coding skills?</textarea
+      >
+    </div>
+
+    <div class="test-section">
+      <h3>Google Gemini Style Input</h3>
+      <textarea
+        aria-label="Enter your message here"
+        placeholder="Enter a prompt here"
+      >
+What are the latest developments in AI?</textarea
+      >
+    </div>
+
+    <div class="test-results">
+      <h3>Test Results:</h3>
+      <ul>
+        <li>✅ Platform detection should appear in browser console</li>
+        <li>✅ PromptPilot widget should appear on page load</li>
+        <li>✅ Clicking in text fields should track the element</li>
+        <li>✅ Improve button should work with all input types</li>
+        <li>✅ Text replacement should preserve cursor position</li>
+      </ul>
+    </div>
+
+    <script>
+      // Display current hostname and expected platform
+      document.getElementById("hostname").textContent =
+        window.location.hostname;
+
+      // Determine expected platform based on hostname
+      const hostname = window.location.hostname.toLowerCase();
+      let expectedPlatform = "default";
+
+      if (hostname.includes("openai.com") || hostname.includes("chatgpt.com")) {
+        expectedPlatform = "openai";
+      } else if (
+        hostname.includes("anthropic.com") ||
+        hostname.includes("claude.ai")
+      ) {
+        expectedPlatform = "anthropic";
+      } else if (
+        hostname.includes("google.com") ||
+        hostname.includes("bard.google.com") ||
+        hostname.includes("gemini.google.com")
+      ) {
+        expectedPlatform = "google";
+      } else if (hostname.includes("grok.com") || hostname.includes("x.ai")) {
+        expectedPlatform = "grok";
+      } else if (
+        hostname.includes("deepseek.com") ||
+        hostname.includes("deepseek.ai")
+      ) {
+        expectedPlatform = "deepseek";
+      } else if (hostname.includes("mistral.ai")) {
+        expectedPlatform = "mistral";
+      } else if (hostname.includes("perplexity.ai")) {
+        expectedPlatform = "perplexity";
+      } else if (hostname.includes("huggingface.co")) {
+        expectedPlatform = "huggingface";
+      }
+
+      document.getElementById("expected-platform").textContent =
+        expectedPlatform;
+
+      // Add some console logging for testing
+      console.log("Test page loaded");
+      console.log("Hostname:", hostname);
+      console.log("Expected platform:", expectedPlatform);
+
+      // Test text selection and focus events
+      document.addEventListener("focusin", (e) => {
+        console.log(
+          "Focus event on:",
+          e.target.tagName,
+          e.target.className,
+          e.target.id
+        );
+      });
+
+      document.addEventListener("click", (e) => {
+        console.log(
+          "Click event on:",
+          e.target.tagName,
+          e.target.className,
+          e.target.id
+        );
+      });
+    </script>
+  </body>
+</html>

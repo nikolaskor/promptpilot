@@ -1,6 +1,7 @@
 /**
  * Content script for PromptPilot
  * Uses a fixed button approach for better reliability
+ * Enhanced with multi-platform support for various LLM websites
  */
 
 // State tracking
@@ -19,6 +20,9 @@ let initialY = 0;
 let currentX = 0;
 let currentY = 0;
 
+// Platform detection
+let currentPlatform: keyof typeof PLATFORM_CONFIGS = "default";
+
 // Intent categories
 const INTENT_CATEGORIES = [
   "Academic",
@@ -28,15 +32,108 @@ const INTENT_CATEGORIES = [
   "Personal",
 ];
 
+// Platform-specific configurations
+const PLATFORM_CONFIGS = {
+  openai: {
+    name: "OpenAI",
+    selectors: [
+      "textarea[data-id]", // ChatGPT main input
+      'textarea[placeholder*="message"]',
+      'div[contenteditable="true"]',
+      "#prompt-textarea",
+    ],
+    waitForLoad: 1000,
+  },
+  anthropic: {
+    name: "Anthropic",
+    selectors: [
+      'div[contenteditable="true"]',
+      "textarea",
+      'div[role="textbox"]',
+    ],
+    waitForLoad: 1500,
+  },
+  google: {
+    name: "Google",
+    selectors: [
+      'textarea[aria-label*="message"]',
+      'div[contenteditable="true"]',
+      'textarea[placeholder*="Enter a prompt"]',
+    ],
+    waitForLoad: 2000,
+  },
+  grok: {
+    name: "Grok",
+    selectors: [
+      'div[contenteditable="true"]',
+      'textarea[placeholder*="Ask Grok"]',
+      'div[role="textbox"]',
+      'textarea[data-testid*="compose"]',
+    ],
+    waitForLoad: 2000,
+  },
+  deepseek: {
+    name: "DeepSeek",
+    selectors: [
+      'textarea[placeholder*="Send a message"]',
+      'div[contenteditable="true"]',
+      'textarea[class*="input"]',
+    ],
+    waitForLoad: 1500,
+  },
+  mistral: {
+    name: "Mistral",
+    selectors: [
+      'textarea[placeholder*="Type a message"]',
+      'div[contenteditable="true"]',
+      'textarea[class*="chat"]',
+    ],
+    waitForLoad: 1500,
+  },
+  perplexity: {
+    name: "Perplexity",
+    selectors: [
+      'textarea[placeholder*="Ask anything"]',
+      'div[contenteditable="true"]',
+    ],
+    waitForLoad: 1000,
+  },
+  huggingface: {
+    name: "Hugging Face",
+    selectors: [
+      'textarea[placeholder*="Type a message"]',
+      'div[contenteditable="true"]',
+    ],
+    waitForLoad: 1500,
+  },
+  default: {
+    name: "Generic",
+    selectors: [
+      "textarea",
+      'input[type="text"]',
+      'div[contenteditable="true"]',
+      'div[role="textbox"]',
+    ],
+    waitForLoad: 500,
+  },
+} as const;
+
 // Initialize the content script
 function initialize() {
   console.log("PromptPilot content script initializing...");
 
+  // Detect current platform
+  detectPlatform();
+
   // Inject styles
   injectStyles();
 
-  // Create and add the fixed button
-  createFixedButton();
+  // Wait for platform-specific load time before creating button
+  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
+  setTimeout(() => {
+    createFixedButton();
+    setupPlatformSpecificHandlers();
+  }, config.waitForLoad);
 
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener(handleMessages);
@@ -48,7 +145,123 @@ function initialize() {
   document.addEventListener("mousedown", trackTextElement);
   document.addEventListener("focusin", trackTextElement);
 
-  console.log("PromptPilot content script initialized");
+  // Handle dynamic content loading (for SPAs)
+  setupMutationObserver();
+
+  console.log(
+    `PromptPilot content script initialized for platform: ${currentPlatform}`
+  );
+}
+
+/**
+ * Detect the current platform based on hostname
+ */
+function detectPlatform() {
+  const hostname = window.location.hostname.toLowerCase();
+
+  if (hostname.includes("openai.com") || hostname.includes("chatgpt.com")) {
+    currentPlatform = "openai";
+  } else if (
+    hostname.includes("anthropic.com") ||
+    hostname.includes("claude.ai")
+  ) {
+    currentPlatform = "anthropic";
+  } else if (
+    hostname.includes("google.com") ||
+    hostname.includes("bard.google.com") ||
+    hostname.includes("gemini.google.com")
+  ) {
+    currentPlatform = "google";
+  } else if (hostname.includes("grok.com") || hostname.includes("x.ai")) {
+    currentPlatform = "grok";
+  } else if (
+    hostname.includes("deepseek.com") ||
+    hostname.includes("deepseek.ai")
+  ) {
+    currentPlatform = "deepseek";
+  } else if (hostname.includes("mistral.ai")) {
+    currentPlatform = "mistral";
+  } else if (hostname.includes("perplexity.ai")) {
+    currentPlatform = "perplexity";
+  } else if (hostname.includes("huggingface.co")) {
+    currentPlatform = "huggingface";
+  } else {
+    currentPlatform = "default";
+  }
+
+  console.log(`Detected platform: ${currentPlatform} (${hostname})`);
+}
+
+/**
+ * Setup platform-specific event handlers and optimizations
+ */
+function setupPlatformSpecificHandlers() {
+  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
+
+  // Add platform-specific text element detection
+  config.selectors.forEach((selector) => {
+    try {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach((element) => {
+        if (!element.hasAttribute("data-promptpilot-tracked")) {
+          element.setAttribute("data-promptpilot-tracked", "true");
+          element.addEventListener("focus", trackTextElement);
+          element.addEventListener("click", trackTextElement);
+        }
+      });
+    } catch (error) {
+      console.warn(`Failed to setup handler for selector ${selector}:`, error);
+    }
+  });
+}
+
+/**
+ * Setup mutation observer to handle dynamically loaded content
+ */
+function setupMutationObserver() {
+  const observer = new MutationObserver((mutations) => {
+    let shouldSetupHandlers = false;
+
+    mutations.forEach((mutation) => {
+      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
+            // Check if new text inputs were added
+            if (
+              element.matches &&
+              (element.matches("textarea") ||
+                element.matches('input[type="text"]') ||
+                element.matches('div[contenteditable="true"]') ||
+                element.matches('div[role="textbox"]'))
+            ) {
+              shouldSetupHandlers = true;
+            }
+            // Also check children
+            if (
+              element.querySelector &&
+              (element.querySelector("textarea") ||
+                element.querySelector('input[type="text"]') ||
+                element.querySelector('div[contenteditable="true"]') ||
+                element.querySelector('div[role="textbox"]'))
+            ) {
+              shouldSetupHandlers = true;
+            }
+          }
+        });
+      }
+    });
+
+    if (shouldSetupHandlers) {
+      // Debounce the setup to avoid excessive calls
+      setTimeout(setupPlatformSpecificHandlers, 500);
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 }
 
 /**
@@ -122,6 +335,7 @@ function handleError(error: string, sendResponse: Function) {
 
 /**
  * Insert improved text at the appropriate location
+ * Enhanced with platform-specific insertion methods
  */
 function insertImprovedText(newText: string) {
   const selection = window.getSelection();
@@ -131,28 +345,173 @@ function insertImprovedText(newText: string) {
     const range = selection.getRangeAt(0);
     range.deleteContents();
     range.insertNode(document.createTextNode(newText));
+
+    // Trigger input events for React/Vue components
+    const parentElement = selection.anchorNode?.parentElement;
+    if (parentElement) {
+      triggerInputEvents(parentElement);
+    }
+    return;
+  }
+
+  // Try to use the active element first
+  const activeElement = document.activeElement as HTMLElement;
+  if (activeElement && insertTextIntoElement(activeElement, newText)) {
     return;
   }
 
   // Otherwise, use the last text element if available
-  if (lastTextElement) {
-    if (
-      lastTextElement.tagName === "TEXTAREA" ||
-      lastTextElement.tagName === "INPUT"
-    ) {
-      const input = lastTextElement as HTMLInputElement | HTMLTextAreaElement;
-      input.value = newText;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    } else if (lastTextElement.getAttribute("contenteditable") === "true") {
-      lastTextElement.innerText = newText;
-      lastTextElement.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  if (lastTextElement && insertTextIntoElement(lastTextElement, newText)) {
+    return;
+  }
+
+  // Platform-specific insertion fallback
+  if (insertTextPlatformSpecific(newText)) {
+    return;
+  }
+
+  console.warn("No target element found to insert improved text");
+  showNotification(
+    "Please select text or click in a text field before improving",
+    "error"
+  );
+}
+
+/**
+ * Insert text into a specific element with proper event handling
+ */
+function insertTextIntoElement(element: HTMLElement, newText: string): boolean {
+  if (!element) return false;
+
+  try {
+    if (element.tagName === "TEXTAREA" || element.tagName === "INPUT") {
+      const input = element as HTMLInputElement | HTMLTextAreaElement;
+
+      // Store cursor position for better UX
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+
+      // If there's a selection, replace it; otherwise replace all
+      if (start !== end) {
+        const value = input.value;
+        input.value =
+          value.substring(0, start) + newText + value.substring(end);
+        input.setSelectionRange(start + newText.length, start + newText.length);
+      } else {
+        input.value = newText;
+        input.setSelectionRange(newText.length, newText.length);
+      }
+
+      // Trigger events for React/Vue components
+      triggerInputEvents(input);
+      return true;
+    } else if (element.getAttribute("contenteditable") === "true") {
+      // For contenteditable elements
+      const selection = window.getSelection();
+
+      // Focus the element first
+      element.focus();
+
+      // Clear existing content or replace selection
+      if (
+        selection &&
+        !selection.isCollapsed &&
+        selection.anchorNode &&
+        element.contains(selection.anchorNode)
+      ) {
+        // Replace selection
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(newText));
+      } else {
+        // Replace all content
+        element.textContent = newText;
+      }
+
+      // Trigger events for React/Vue components
+      triggerInputEvents(element);
+      return true;
     }
-  } else {
-    console.warn("No target element found to insert improved text");
-    showNotification(
-      "Please select text or click in a text field before improving",
-      "error"
-    );
+  } catch (error) {
+    console.warn("Error inserting text into element:", error);
+  }
+
+  return false;
+}
+
+/**
+ * Insert text using platform-specific methods
+ */
+function insertTextPlatformSpecific(newText: string): boolean {
+  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
+
+  // Try each platform-specific selector to find an active input
+  for (const selector of config.selectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      for (const element of elements) {
+        const htmlElement = element as HTMLElement;
+
+        // Skip if element is not visible or interactable
+        if (!isElementVisible(htmlElement)) {
+          continue;
+        }
+
+        // Try to insert text into this element
+        if (insertTextIntoElement(htmlElement, newText)) {
+          lastTextElement = htmlElement;
+          return true;
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `Error with platform-specific insertion for selector ${selector}:`,
+        error
+      );
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Trigger appropriate input events for modern web frameworks
+ */
+function triggerInputEvents(element: HTMLElement | null) {
+  if (!element) return;
+
+  try {
+    // Trigger multiple events to ensure compatibility with React, Vue, etc.
+    const events = [
+      new Event("input", { bubbles: true }),
+      new Event("change", { bubbles: true }),
+      new InputEvent("input", { bubbles: true, inputType: "insertText" }),
+      new Event("blur", { bubbles: true }),
+      new Event("focus", { bubbles: true }),
+    ];
+
+    events.forEach((event) => {
+      try {
+        element.dispatchEvent(event);
+      } catch (e) {
+        // Ignore individual event errors
+      }
+    });
+
+    // For some platforms, we need to trigger React's internal events
+    if (currentPlatform === "openai" || currentPlatform === "anthropic") {
+      // Trigger React's onChange by setting the value descriptor
+      const descriptor =
+        Object.getOwnPropertyDescriptor(element, "value") ||
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value") ||
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+
+      if (descriptor && descriptor.set) {
+        descriptor.set.call(element, (element as any).value);
+      }
+    }
+  } catch (error) {
+    console.warn("Error triggering input events:", error);
   }
 }
 
@@ -364,6 +723,7 @@ function handleImproveClick() {
 
 /**
  * Get currently selected text or text from an input field
+ * Enhanced with platform-specific text detection
  */
 function getSelectedText(): string {
   // First check if there's a selection in the document
@@ -415,6 +775,12 @@ function getSelectedText(): string {
     }
   }
 
+  // Platform-specific text detection fallback
+  const text = getPlatformSpecificText();
+  if (text) {
+    return text;
+  }
+
   // If no active element with text is found, try to find the last clicked text element
   if (lastTextElement) {
     if (
@@ -429,6 +795,81 @@ function getSelectedText(): string {
   }
 
   return "";
+}
+
+/**
+ * Get text using platform-specific selectors and methods
+ */
+function getPlatformSpecificText(): string {
+  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
+
+  // Try each platform-specific selector
+  for (const selector of config.selectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      for (const element of elements) {
+        const htmlElement = element as HTMLElement;
+
+        // Skip if element is not visible or interactable
+        if (!isElementVisible(htmlElement)) {
+          continue;
+        }
+
+        // Check if this element has focus or was recently interacted with
+        if (
+          htmlElement === document.activeElement ||
+          htmlElement === lastTextElement
+        ) {
+          lastTextElement = htmlElement;
+
+          if (
+            htmlElement.tagName === "TEXTAREA" ||
+            htmlElement.tagName === "INPUT"
+          ) {
+            const input = htmlElement as HTMLInputElement | HTMLTextAreaElement;
+            if (input.value.trim()) {
+              return input.value.trim();
+            }
+          } else if (htmlElement.getAttribute("contenteditable") === "true") {
+            const text =
+              htmlElement.textContent?.trim() ||
+              htmlElement.innerText?.trim() ||
+              "";
+            if (text) {
+              return text;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Error with selector ${selector}:`, error);
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Check if an element is visible and interactable
+ */
+function isElementVisible(element: HTMLElement): boolean {
+  if (!element) return false;
+
+  const style = window.getComputedStyle(element);
+  if (
+    style.display === "none" ||
+    style.visibility === "hidden" ||
+    style.opacity === "0"
+  ) {
+    return false;
+  }
+
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -874,17 +1315,188 @@ function injectStyles() {
 
 /**
  * Track the last clicked or focused text element
+ * Enhanced with platform-specific element detection
  */
 function trackTextElement(event: Event) {
   const target = event.target as HTMLElement;
+  if (!target) return;
+
+  // Standard text element detection
   if (
-    target &&
-    (target.tagName === "TEXTAREA" ||
-      target.tagName === "INPUT" ||
-      target.getAttribute("contenteditable") === "true")
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "INPUT" ||
+    target.getAttribute("contenteditable") === "true"
   ) {
-    console.log("Tracking text element:", target.tagName);
+    console.log(
+      `Tracking text element: ${target.tagName} (${currentPlatform})`
+    );
     lastTextElement = target;
+    return;
+  }
+
+  // Platform-specific element detection
+  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
+
+  // Check if the target matches any platform-specific selectors
+  for (const selector of config.selectors) {
+    try {
+      if (target.matches && target.matches(selector)) {
+        console.log(
+          `Tracking platform-specific element: ${selector} (${currentPlatform})`
+        );
+        lastTextElement = target;
+        return;
+      }
+    } catch (error) {
+      // Ignore selector errors
+    }
+  }
+
+  // Check if target is within a text container (for complex nested structures)
+  let parent = target.parentElement;
+  let depth = 0;
+  const maxDepth = 5; // Limit traversal depth
+
+  while (parent && depth < maxDepth) {
+    // Check standard elements
+    if (
+      parent.tagName === "TEXTAREA" ||
+      parent.tagName === "INPUT" ||
+      parent.getAttribute("contenteditable") === "true"
+    ) {
+      console.log(
+        `Tracking parent text element: ${parent.tagName} (${currentPlatform})`
+      );
+      lastTextElement = parent;
+      return;
+    }
+
+    // Check platform-specific selectors on parent
+    for (const selector of config.selectors) {
+      try {
+        if (parent.matches && parent.matches(selector)) {
+          console.log(
+            `Tracking platform-specific parent: ${selector} (${currentPlatform})`
+          );
+          lastTextElement = parent;
+          return;
+        }
+      } catch (error) {
+        // Ignore selector errors
+      }
+    }
+
+    parent = parent.parentElement;
+    depth++;
+  }
+
+  // Special handling for specific platforms
+  handlePlatformSpecificTracking(target);
+}
+
+/**
+ * Handle platform-specific text element tracking
+ */
+function handlePlatformSpecificTracking(target: HTMLElement) {
+  switch (currentPlatform) {
+    case "openai":
+      // ChatGPT often uses nested div structures
+      if (
+        target.closest("form") ||
+        target.closest('[data-testid*="composer"]')
+      ) {
+        const textArea =
+          target.closest("form")?.querySelector("textarea") ||
+          target
+            .closest('[data-testid*="composer"]')
+            ?.querySelector("textarea");
+        if (textArea) {
+          lastTextElement = textArea as HTMLElement;
+          console.log("Tracking OpenAI textarea via form/composer");
+        }
+      }
+      break;
+
+    case "anthropic":
+      // Claude often uses contenteditable divs within specific containers
+      if (
+        target.closest('[data-testid*="chat"]') ||
+        target.closest(".ProseMirror")
+      ) {
+        const editableDiv =
+          target.closest('[contenteditable="true"]') ||
+          target.closest(".ProseMirror");
+        if (editableDiv) {
+          lastTextElement = editableDiv as HTMLElement;
+          console.log("Tracking Anthropic contenteditable via chat container");
+        }
+      }
+      break;
+
+    case "google":
+      // Gemini/Bard may use complex nested structures
+      if (
+        target.closest('[data-test-id*="input"]') ||
+        target.closest('[role="textbox"]')
+      ) {
+        const textBox =
+          target.closest('[role="textbox"]') || target.closest("textarea");
+        if (textBox) {
+          lastTextElement = textBox as HTMLElement;
+          console.log("Tracking Google textbox via role or test-id");
+        }
+      }
+      break;
+
+    case "grok":
+      // Grok (X.ai) likely uses Twitter-like compose structures
+      if (
+        target.closest('[data-testid*="compose"]') ||
+        target.closest('[role="textbox"]')
+      ) {
+        const composeElement =
+          target.closest('[role="textbox"]') ||
+          target.closest('[contenteditable="true"]');
+        if (composeElement) {
+          lastTextElement = composeElement as HTMLElement;
+          console.log("Tracking Grok compose element");
+        }
+      }
+      break;
+
+    case "deepseek":
+    case "mistral":
+      // These platforms likely use standard chat interfaces
+      if (
+        target.closest('[class*="chat"]') ||
+        target.closest('[class*="input"]')
+      ) {
+        const chatInput =
+          target.closest("textarea") ||
+          target.closest('[contenteditable="true"]');
+        if (chatInput) {
+          lastTextElement = chatInput as HTMLElement;
+          console.log(`Tracking ${currentPlatform} chat input`);
+        }
+      }
+      break;
+
+    default:
+      // For unknown platforms, try to find any nearby text input
+      const nearbyInput =
+        target
+          .closest("form")
+          ?.querySelector(
+            'textarea, input[type="text"], [contenteditable="true"]'
+          ) ||
+        document.querySelector(
+          'textarea:focus, input[type="text"]:focus, [contenteditable="true"]:focus'
+        );
+      if (nearbyInput) {
+        lastTextElement = nearbyInput as HTMLElement;
+        console.log("Tracking nearby text input for unknown platform");
+      }
+      break;
   }
 }
 
