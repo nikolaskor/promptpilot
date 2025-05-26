@@ -150,6 +150,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
               await AnalyticsStorage.savePromptImprovement(improvement);
               console.log("Analytics tracked successfully");
+
+              // Check for proactive warnings after successful improvement
+              const remaining =
+                await AnalyticsStorage.getRemainingImprovements();
+              const settings = await AnalyticsStorage.getUserSettings();
+
+              if (settings.subscriptionStatus === "free") {
+                // Send proactive warnings at specific thresholds
+                if (remaining === 4 || remaining === 1) {
+                  if (sender.tab && typeof sender.tab.id === "number") {
+                    chrome.tabs.sendMessage(sender.tab.id, {
+                      type: "USAGE_WARNING",
+                      remaining: remaining,
+                      limit: settings.monthlyLimit,
+                      subscriptionStatus: settings.subscriptionStatus,
+                    });
+                  }
+                }
+              }
             } catch (analyticsError) {
               console.error("Error tracking analytics:", analyticsError);
               // Don't fail the main operation if analytics fails

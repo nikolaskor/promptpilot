@@ -144,6 +144,15 @@ export class AnalyticsStorage {
   }
 
   /**
+   * Get the next usage reset date (first day of next month)
+   */
+  static getNextResetDate(): Date {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return nextMonth;
+  }
+
+  /**
    * Increment usage count
    */
   static async incrementUsage(): Promise<void> {

@@ -151,6 +151,16 @@ function initialize() {
   console.log(
     `PromptPilot content script initialized for platform: ${currentPlatform}`
   );
+
+  // Show onboarding notification for new users
+  showOnboardingNotification();
+
+  // Show platform-specific help if it's a recognized platform
+  if (currentPlatform !== "default") {
+    setTimeout(() => {
+      showContextualHelp("platform-detected");
+    }, 5000);
+  }
 }
 
 /**
@@ -276,6 +286,8 @@ function handleMessages(message: any, sender: any, sendResponse: any) {
     handleError(message.error, sendResponse);
   } else if (message.type === "USAGE_LIMIT_REACHED") {
     handleUsageLimitReached(message, sendResponse);
+  } else if (message.type === "USAGE_WARNING") {
+    handleUsageWarning(message, sendResponse);
   } else if (message.type === "GET_SELECTED_TEXT") {
     const selectedText = getSelectedText();
     console.log(
@@ -296,7 +308,18 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
     console.log("Received improved text for replacement");
 
     if (!improvedText) {
-      showNotification("Received empty text from server", "error");
+      showNotification({
+        message:
+          "No improvement suggestions received. Please try again with different text.",
+        type: "warning",
+        icon: "🤔",
+        duration: 6000,
+        dismissible: true,
+        actionText: "Try Again",
+        actionCallback: () => {
+          handleImproveClick();
+        },
+      });
       resetButtonState();
       isImprovementInProgress = false;
       sendResponse({ status: "error" });
@@ -317,7 +340,18 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
     sendResponse({ status: "text_updated" });
   } catch (error) {
     console.error("Error handling improved text:", error);
-    showNotification("Failed to update text with improvements", "error");
+    showNotification({
+      message:
+        "Failed to insert improved text. You can copy it from the popup instead.",
+      type: "error",
+      icon: "📋",
+      duration: 8000,
+      dismissible: true,
+      actionText: "Open Popup",
+      actionCallback: () => {
+        chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
+      },
+    });
     resetButtonState();
     isImprovementInProgress = false;
     sendResponse({ status: "error" });
@@ -329,7 +363,46 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
  */
 function handleError(error: string, sendResponse: Function) {
   console.error("Received improvement error:", error);
-  showNotification(error || "Error improving text", "error");
+
+  // Enhanced error notification with better messaging
+  let errorMessage = error || "Error improving text";
+  let actionText = undefined;
+  let actionCallback = undefined;
+
+  // Provide specific actions based on error type
+  if (error.includes("API key") || error.includes("authentication")) {
+    errorMessage = "API authentication failed. Please check your settings.";
+    actionText = "Open Settings";
+    actionCallback = () => {
+      chrome.runtime.sendMessage({ type: "OPEN_OPTIONS_PAGE" });
+    };
+  } else if (error.includes("network") || error.includes("connection")) {
+    errorMessage =
+      "Network error. Please check your internet connection and try again.";
+    actionText = "Retry";
+    actionCallback = () => {
+      // Retry the last improvement
+      handleImproveClick();
+    };
+  } else if (error.includes("rate limit") || error.includes("quota")) {
+    errorMessage =
+      "API rate limit reached. Please wait a moment and try again.";
+    actionText = "Learn More";
+    actionCallback = () => {
+      chrome.runtime.sendMessage({ type: "OPEN_HELP_PAGE" });
+    };
+  }
+
+  showNotification({
+    message: errorMessage,
+    type: "error",
+    icon: "❌",
+    duration: 8000,
+    dismissible: true,
+    actionText,
+    actionCallback,
+  });
+
   resetButtonState();
   isImprovementInProgress = false;
   sendResponse({ status: "error_displayed" });
@@ -343,16 +416,120 @@ function handleUsageLimitReached(message: any, sendResponse: Function) {
 
   const { remaining, limit, subscriptionStatus } = message;
 
-  let errorMessage = `Monthly limit reached (${limit} improvements/month).`;
+  let notificationMessage = `You've reached your monthly limit of ${limit} improvements.`;
 
   if (subscriptionStatus === "free") {
-    errorMessage += " Upgrade to Premium for unlimited improvements.";
+    showNotification({
+      message: notificationMessage,
+      type: "error",
+      icon: "🚫",
+      duration: 8000,
+      dismissible: true,
+      actionText: "Upgrade Now",
+      actionCallback: () => {
+        // Open upgrade page or popup
+        chrome.runtime.sendMessage({ type: "OPEN_UPGRADE_PAGE" });
+      },
+    });
+  } else {
+    showNotification({
+      message:
+        notificationMessage +
+        " Please contact support if this seems incorrect.",
+      type: "error",
+      icon: "⚠️",
+      duration: 6000,
+      dismissible: true,
+    });
   }
 
-  showNotification(errorMessage, "error");
   resetButtonState();
   isImprovementInProgress = false;
   sendResponse({ status: "limit_displayed" });
+}
+
+/**
+ * Handle usage warning message for proactive notifications
+ */
+function handleUsageWarning(message: any, sendResponse: Function) {
+  console.log("Usage warning:", message);
+
+  const { remaining, limit, subscriptionStatus } = message;
+
+  if (subscriptionStatus === "free") {
+    if (remaining === 1) {
+      showNotification({
+        message:
+          "Last improvement remaining! Your usage resets on the 1st of next month.",
+        type: "warning",
+        icon: "🚨",
+        duration: 8000,
+        dismissible: true,
+        actionText: "Upgrade Now",
+        actionCallback: () => {
+          chrome.runtime.sendMessage({ type: "OPEN_UPGRADE_PAGE" });
+        },
+      });
+    } else if (remaining === 4) {
+      showNotification({
+        message: `${remaining} improvements left this month. Upgrade for unlimited access!`,
+        type: "warning",
+        icon: "⚠️",
+        duration: 6000,
+        dismissible: true,
+        actionText: "Learn More",
+        actionCallback: () => {
+          chrome.runtime.sendMessage({ type: "OPEN_UPGRADE_PAGE" });
+        },
+      });
+    }
+  }
+
+  sendResponse({ status: "warning_displayed" });
+}
+
+/**
+ * Check usage limits and show proactive warnings
+ */
+function checkUsageLimitsAndWarn() {
+  chrome.runtime.sendMessage(
+    { type: "GET_REMAINING_IMPROVEMENTS" },
+    (response) => {
+      if (response?.status === "success") {
+        const remaining = response.data;
+
+        // Show warning at 80% usage (4 remaining for free tier)
+        if (remaining === 4) {
+          showNotification({
+            message: `${remaining} improvements left this month. Upgrade for unlimited access!`,
+            type: "warning",
+            icon: "⚠️",
+            duration: 6000,
+            dismissible: true,
+            actionText: "Learn More",
+            actionCallback: () => {
+              chrome.runtime.sendMessage({ type: "OPEN_UPGRADE_PAGE" });
+            },
+          });
+        }
+        // Final warning at 95% usage (1 remaining for free tier)
+        else if (remaining === 1) {
+          showNotification({
+            message:
+              "Last improvement remaining! Your usage resets on the 1st of next month.",
+            type: "warning",
+            icon: "🚨",
+            duration: 8000,
+            dismissible: true,
+            actionText: "Upgrade Now",
+            actionCallback: () => {
+              chrome.runtime.sendMessage({ type: "OPEN_UPGRADE_PAGE" });
+            },
+          });
+        }
+      }
+    }
+  );
 }
 
 /**
@@ -393,10 +570,13 @@ function insertImprovedText(newText: string) {
   }
 
   console.warn("No target element found to insert improved text");
-  showNotification(
-    "Please select text or click in a text field before improving",
-    "error"
-  );
+  showNotification({
+    message: "Please select text or click in a text field before improving",
+    type: "error",
+    icon: "❌",
+    duration: 5000,
+    dismissible: true,
+  });
 }
 
 /**
@@ -698,10 +878,17 @@ function handleImproveClick() {
   const text = getSelectedText();
 
   if (!text) {
-    showNotification(
-      "No text found. Please click or focus on a text field.",
-      "error"
-    );
+    showNotification({
+      message: "No text found. Please click or focus on a text field first.",
+      type: "warning",
+      icon: "⚠️",
+      duration: 5000,
+      dismissible: true,
+      actionText: "Help",
+      actionCallback: () => {
+        chrome.runtime.sendMessage({ type: "OPEN_HELP_PAGE" });
+      },
+    });
     return;
   }
 
@@ -733,10 +920,18 @@ function handleImproveClick() {
           "Error sending improvement request:",
           chrome.runtime.lastError
         );
-        showNotification(
-          "Failed to communicate with extension. Please try again.",
-          "error"
-        );
+        showNotification({
+          message:
+            "Extension communication failed. Please refresh the page and try again.",
+          type: "error",
+          icon: "🔄",
+          duration: 8000,
+          dismissible: true,
+          actionText: "Refresh Page",
+          actionCallback: () => {
+            window.location.reload();
+          },
+        });
         resetButtonState();
         isImprovementInProgress = false;
       }
@@ -950,7 +1145,16 @@ function showSuccessState() {
     improveButton.title = "Text improved successfully!";
 
     // Show success notification
-    showNotification("Text successfully improved!", "success");
+    showNotification({
+      message: "Text successfully improved!",
+      type: "success",
+      icon: "✅",
+      duration: 3000,
+      dismissible: false,
+    });
+
+    // Check usage limits and show proactive warnings
+    checkUsageLimitsAndWarn();
 
     // Reset after delay
     setTimeout(() => {
@@ -963,21 +1167,242 @@ function showSuccessState() {
 /**
  * Show notification to the user
  */
-function showNotification(message: string, type: "success" | "error") {
-  // Create notification element
+
+/**
+ * Enhanced notification options
+ */
+interface NotificationOptions {
+  message: string;
+  type: "success" | "error" | "warning" | "info";
+  duration?: number; // Duration in milliseconds, 0 for persistent
+  dismissible?: boolean; // Show close button
+  icon?: string; // Icon to display
+  actionText?: string; // Action button text
+  actionCallback?: () => void; // Action button callback
+}
+
+/**
+ * Notification queue management
+ */
+let notificationQueue: NotificationOptions[] = [];
+let activeNotifications: HTMLElement[] = [];
+const MAX_CONCURRENT_NOTIFICATIONS = 3;
+
+/**
+ * Process notification queue
+ */
+function processNotificationQueue() {
+  if (
+    notificationQueue.length === 0 ||
+    activeNotifications.length >= MAX_CONCURRENT_NOTIFICATIONS
+  ) {
+    return;
+  }
+
+  const options = notificationQueue.shift();
+  if (options) {
+    const notification = createNotificationElement(options);
+    activeNotifications.push(notification);
+
+    // Auto-remove after delay (if not persistent)
+    const duration = options.duration ?? 4000;
+    if (duration > 0) {
+      setTimeout(() => {
+        removeNotificationFromQueue(notification);
+      }, duration);
+    }
+  }
+}
+
+/**
+ * Create notification element
+ */
+function createNotificationElement(options: NotificationOptions): HTMLElement {
+  // Create notification container
   const notification = document.createElement("div");
-  notification.className = `promptpilot-notification ${type}`;
-  notification.textContent = message;
+  notification.className = `promptpilot-notification ${options.type}`;
+
+  // Create notification content
+  const content = document.createElement("div");
+  content.className = "promptpilot-notification-content";
+
+  // Add icon if specified
+  if (options.icon) {
+    const icon = document.createElement("div");
+    icon.className = "promptpilot-notification-icon";
+    icon.textContent = options.icon;
+    content.appendChild(icon);
+  }
+
+  // Add message
+  const messageEl = document.createElement("div");
+  messageEl.className = "promptpilot-notification-message";
+  messageEl.textContent = options.message;
+  content.appendChild(messageEl);
+
+  notification.appendChild(content);
+
+  // Add action button if specified
+  if (options.actionText && options.actionCallback) {
+    const actionButton = document.createElement("button");
+    actionButton.className = "promptpilot-notification-action";
+    actionButton.textContent = options.actionText;
+    actionButton.onclick = (e) => {
+      e.stopPropagation();
+      options.actionCallback!();
+      removeNotificationFromQueue(notification);
+    };
+    notification.appendChild(actionButton);
+  }
+
+  // Add close button if dismissible
+  if (options.dismissible) {
+    const closeButton = document.createElement("button");
+    closeButton.className = "promptpilot-notification-close";
+    closeButton.innerHTML = "×";
+    closeButton.onclick = (e) => {
+      e.stopPropagation();
+      removeNotificationFromQueue(notification);
+    };
+    notification.appendChild(closeButton);
+  }
 
   // Add to page
   document.body.appendChild(notification);
 
-  // Remove after delay
-  setTimeout(() => {
-    if (notification.parentNode) {
-      document.body.removeChild(notification);
+  return notification;
+}
+
+/**
+ * Remove notification from queue and DOM
+ */
+function removeNotificationFromQueue(notification: HTMLElement) {
+  removeNotification(notification);
+  const index = activeNotifications.indexOf(notification);
+  if (index > -1) {
+    activeNotifications.splice(index, 1);
+    // Process next notification in queue
+    setTimeout(processNotificationQueue, 100);
+  }
+}
+
+/**
+ * Show enhanced notification to user
+ */
+function showNotification(
+  messageOrOptions: string | NotificationOptions,
+  type?: "success" | "error" | "warning" | "info"
+) {
+  // Handle backward compatibility
+  let options: NotificationOptions;
+  if (typeof messageOrOptions === "string") {
+    options = {
+      message: messageOrOptions,
+      type: type || "info",
+      duration: 4000,
+      dismissible: false,
+    };
+  } else {
+    options = {
+      duration: 4000,
+      dismissible: false,
+      ...messageOrOptions,
+    };
+  }
+
+  // Add to queue if we have too many active notifications
+  if (activeNotifications.length >= MAX_CONCURRENT_NOTIFICATIONS) {
+    notificationQueue.push(options);
+    return null;
+  }
+
+  // Create and show notification immediately
+  const notification = createNotificationElement(options);
+  activeNotifications.push(notification);
+
+  // Auto-remove after delay (if not persistent)
+  const duration = options.duration ?? 4000;
+  if (duration > 0) {
+    setTimeout(() => {
+      removeNotificationFromQueue(notification);
+    }, duration);
+  }
+
+  return notification;
+}
+
+/**
+ * Remove notification with animation
+ */
+function removeNotification(notification: HTMLElement) {
+  if (notification.parentNode) {
+    notification.style.animation =
+      "promptpilot-fade-out 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+    setTimeout(() => {
+      if (notification.parentNode) {
+        document.body.removeChild(notification);
+      }
+    }, 300);
+  }
+}
+
+/**
+ * Show onboarding notification for first-time users
+ */
+function showOnboardingNotification() {
+  // Check if user has seen onboarding
+  chrome.storage.local.get(["promptpilot_onboarding_shown"], (result) => {
+    if (!result.promptpilot_onboarding_shown) {
+      setTimeout(() => {
+        showNotification({
+          message:
+            "Welcome to PromptPilot! Click the floating button to improve any text on this page.",
+          type: "info",
+          icon: "👋",
+          duration: 10000,
+          dismissible: true,
+          actionText: "Got it!",
+          actionCallback: () => {
+            // Mark onboarding as shown
+            chrome.storage.local.set({ promptpilot_onboarding_shown: true });
+          },
+        });
+      }, 2000); // Show after 2 seconds to let page load
     }
-  }, 4000);
+  });
+}
+
+/**
+ * Show contextual help notifications
+ */
+function showContextualHelp(context: string) {
+  const helpMessages = {
+    "no-text-selected": {
+      message:
+        "💡 Tip: Select text or click in a text field, then use PromptPilot to improve it!",
+      duration: 6000,
+    },
+    "first-improvement": {
+      message:
+        "🎯 Pro tip: Use the intent selector (target icon) to get more specific improvements!",
+      duration: 8000,
+    },
+    "platform-detected": {
+      message: `✨ PromptPilot is optimized for ${PLATFORM_CONFIGS[currentPlatform].name}. Start improving your prompts!`,
+      duration: 5000,
+    },
+  };
+
+  const help = helpMessages[context as keyof typeof helpMessages];
+  if (help) {
+    showNotification({
+      message: help.message,
+      type: "info",
+      icon: "💡",
+      duration: help.duration,
+      dismissible: true,
+    });
+  }
 }
 
 /**
@@ -1279,21 +1704,93 @@ function injectStyles() {
       to { opacity: 1; transform: translateY(0); }
     }
     
-    /* Notification styles */
+    /* Enhanced Notification styles */
     .promptpilot-notification {
       position: fixed;
       bottom: 80px;
       right: 20px;
-      padding: 12px 16px;
-      border-radius: 8px;
+      border-radius: 12px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 13px;
       font-weight: 500;
-      max-width: 280px;
+      max-width: 320px;
+      min-width: 280px;
       color: white;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       z-index: 2147483647;
-      animation: promptpilot-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: promptpilot-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .promptpilot-notification-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      flex: 1;
+    }
+    
+    .promptpilot-notification-icon {
+      font-size: 18px;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    
+    .promptpilot-notification-message {
+      flex: 1;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    
+    .promptpilot-notification-action {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0 16px 12px 16px;
+      align-self: flex-start;
+    }
+    
+    .promptpilot-notification-action:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    
+    .promptpilot-notification-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      line-height: 1;
+    }
+    
+    .promptpilot-notification-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
     }
     
     .promptpilot-notification.success {
@@ -1302,6 +1799,37 @@ function injectStyles() {
     
     .promptpilot-notification.error {
       background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+    }
+    
+    .promptpilot-notification.warning {
+      background: linear-gradient(135deg, #ff9800 0%, #ffb300 100%);
+    }
+    
+    .promptpilot-notification.info {
+      background: linear-gradient(135deg, #2196f3 0%, #03a9f4 100%);
+    }
+    
+    /* Notification animations */
+    @keyframes promptpilot-fade-in {
+      from {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+    
+    @keyframes promptpilot-fade-out {
+      from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
     }
     
     /* Responsive adjustments */

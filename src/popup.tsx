@@ -9,6 +9,14 @@ type PopupState = {
   isCopied: boolean;
   selectedIntent: string;
   isDropdownOpen: boolean;
+  // Usage tracking state
+  usageCount: number;
+  monthlyLimit: number;
+  subscriptionStatus: "free" | "premium" | "lifetime";
+  remainingImprovements: number;
+  isLoadingUsage: boolean;
+  showUpgradePrompt: boolean;
+  nextResetDate: Date | null;
 };
 
 const INTENT_CATEGORIES = [
@@ -28,9 +36,72 @@ const Popup: React.FC = () => {
     isCopied: false,
     selectedIntent: "",
     isDropdownOpen: false,
+    // Usage tracking initial state
+    usageCount: 0,
+    monthlyLimit: 20,
+    subscriptionStatus: "free",
+    remainingImprovements: 20,
+    isLoadingUsage: true,
+    showUpgradePrompt: false,
+    nextResetDate: null,
   });
 
+  // Load usage data from background script
+  const loadUsageData = async () => {
+    try {
+      // Get user settings
+      const settingsResponse = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ type: "GET_USER_SETTINGS" }, resolve);
+      });
+
+      // Get remaining improvements
+      const remainingResponse = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage(
+          { type: "GET_REMAINING_IMPROVEMENTS" },
+          resolve
+        );
+      });
+
+      if (
+        settingsResponse?.status === "success" &&
+        remainingResponse?.status === "success"
+      ) {
+        const settings = settingsResponse.data;
+        const remaining = remainingResponse.data;
+
+        // Calculate next reset date (first day of next month)
+        const now = new Date();
+        const nextResetDate = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          1
+        );
+
+        setState((prev) => ({
+          ...prev,
+          usageCount: settings.usageCount,
+          monthlyLimit: settings.monthlyLimit,
+          subscriptionStatus: settings.subscriptionStatus,
+          remainingImprovements: remaining,
+          isLoadingUsage: false,
+          nextResetDate,
+        }));
+
+        // Show upgrade prompt if user is close to limit
+        if (settings.subscriptionStatus === "free" && remaining <= 4) {
+          setState((prev) => ({ ...prev, showUpgradePrompt: true }));
+        }
+      }
+    } catch (error) {
+      console.error("Error loading usage data:", error);
+      setState((prev) => ({ ...prev, isLoadingUsage: false }));
+    }
+  };
+
   useEffect(() => {
+    // Load usage data on popup open
+    loadUsageData();
+
     // Listen for messages from the background script
     const messageListener = (message: any) => {
       console.log("Popup received message:", message.type, message);
@@ -45,6 +116,8 @@ const Popup: React.FC = () => {
           improvedPrompt: message.text,
           isLoading: false,
         }));
+        // Reload usage data after successful improvement
+        loadUsageData();
       } else if (message.type === "ERROR") {
         console.error("Received error message:", message.error);
         setState((prev) => ({
@@ -257,6 +330,143 @@ const Popup: React.FC = () => {
     }));
   };
 
+  const handleUpgradeClick = () => {
+    // For demo purposes, simulate subscription upgrade
+    setState((prev) => ({ ...prev, showUpgradePrompt: false }));
+
+    // In a real app, this would open a payment flow
+    console.log("Upgrade to Premium clicked - would open payment flow");
+
+    // For testing, we can simulate upgrading to premium
+    chrome.runtime.sendMessage(
+      {
+        type: "UPDATE_USER_SETTINGS",
+        updates: { subscriptionStatus: "premium" },
+      },
+      () => {
+        loadUsageData(); // Reload to show updated status
+      }
+    );
+  };
+
+  const handleDismissUpgrade = () => {
+    setState((prev) => ({ ...prev, showUpgradePrompt: false }));
+  };
+
+  const renderUsageStats = () => {
+    if (state.isLoadingUsage) {
+      return (
+        <div className="usage-stats loading">
+          <div className="usage-loader">Loading usage...</div>
+        </div>
+      );
+    }
+
+    const usagePercentage =
+      state.subscriptionStatus === "free"
+        ? (state.usageCount / state.monthlyLimit) * 100
+        : 0;
+
+    const isNearLimit =
+      state.subscriptionStatus === "free" && state.remainingImprovements <= 4;
+    const isAtLimit =
+      state.subscriptionStatus === "free" && state.remainingImprovements <= 0;
+
+    return (
+      <div
+        className={`usage-stats ${isNearLimit ? "warning" : ""} ${
+          isAtLimit ? "danger" : ""
+        }`}
+      >
+        <div className="usage-header">
+          <span className="usage-title">
+            {state.subscriptionStatus === "free"
+              ? "Free Plan"
+              : state.subscriptionStatus === "premium"
+              ? "Premium Plan"
+              : "Lifetime Plan"}
+          </span>
+          {state.subscriptionStatus !== "free" && (
+            <span className="unlimited-badge">Unlimited</span>
+          )}
+        </div>
+
+        {state.subscriptionStatus === "free" && (
+          <>
+            <div className="usage-progress">
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                ></div>
+              </div>
+              <div className="usage-text">
+                {state.usageCount} / {state.monthlyLimit} improvements used
+              </div>
+            </div>
+
+            <div className="remaining-count">
+              <span
+                className={`remaining-number ${isNearLimit ? "warning" : ""}`}
+              >
+                {state.remainingImprovements}
+              </span>
+              <span className="remaining-label">improvements remaining</span>
+            </div>
+
+            {state.nextResetDate && (
+              <div className="reset-date">
+                <span className="reset-label">Resets on:</span>
+                <span className="reset-value">
+                  {state.nextResetDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {state.subscriptionStatus === "free" && (
+          <div className="upgrade-section">
+            <button className="upgrade-button" onClick={handleUpgradeClick}>
+              ⭐ Upgrade to Premium
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderUpgradePrompt = () => {
+    if (!state.showUpgradePrompt) return null;
+
+    return (
+      <div className="upgrade-prompt">
+        <div className="upgrade-content">
+          <div className="upgrade-icon">⚠️</div>
+          <div className="upgrade-message">
+            <strong>Running low on improvements!</strong>
+            <p>
+              You have {state.remainingImprovements} improvements left this
+              month.
+            </p>
+          </div>
+          <div className="upgrade-actions">
+            <button className="upgrade-now-button" onClick={handleUpgradeClick}>
+              Upgrade Now
+            </button>
+            <button className="dismiss-button" onClick={handleDismissUpgrade}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderErrorMessage = () => {
     if (!state.error) return null;
 
@@ -301,6 +511,9 @@ const Popup: React.FC = () => {
     <div className="container">
       <h2>PromptPilot</h2>
       <p className="subtitle">AI-powered prompt improvement tool</p>
+
+      {renderUpgradePrompt()}
+      {renderUsageStats()}
 
       <div>
         <div className="label">Original Prompt</div>
