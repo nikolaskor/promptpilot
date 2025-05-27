@@ -232,6 +232,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sender
               );
             }
+
+            // Also send improved text to popup for display
+            try {
+              chrome.runtime.sendMessage(
+                {
+                  type: "IMPROVED_TEXT",
+                  text: improvedText,
+                },
+                (response) => {
+                  const lastError = chrome.runtime.lastError;
+                  if (lastError) {
+                    // This is normal if popup isn't open
+                    console.log(
+                      "Note: Popup may not be open to receive improved text"
+                    );
+                  } else {
+                    console.log("Improved text forwarded to popup");
+                  }
+                }
+              );
+            } catch (err) {
+              console.error("Error forwarding improved text to popup:", err);
+            }
           })
           .catch(async (error) => {
             const endTime = Date.now();
@@ -295,6 +318,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 "Cannot send error: sender.tab or sender.tab.id is undefined",
                 sender
               );
+            }
+
+            // Also send error to popup for display
+            try {
+              chrome.runtime.sendMessage(
+                {
+                  type: "ERROR",
+                  error:
+                    error.message ||
+                    "Failed to improve prompt. Please try again.",
+                },
+                (response) => {
+                  const lastError = chrome.runtime.lastError;
+                  if (lastError) {
+                    // This is normal if popup isn't open
+                    console.log("Note: Popup may not be open to receive error");
+                  } else {
+                    console.log("Error forwarded to popup");
+                  }
+                }
+              );
+            } catch (err) {
+              console.error("Error forwarding error to popup:", err);
             }
           });
       })

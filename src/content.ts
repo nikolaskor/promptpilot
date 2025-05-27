@@ -934,6 +934,53 @@ function handleImproveClick() {
         });
         resetButtonState();
         isImprovementInProgress = false;
+      } else {
+        // Handle successful response from background script
+        console.log("Background script response:", response);
+
+        if (response && response.status === "processing") {
+          console.log("Background script is processing the request");
+          // Keep loading state - the background script will send IMPROVED_TEXT_FOR_REPLACEMENT when done
+
+          // Set a timeout in case the background script doesn't respond
+          setTimeout(() => {
+            if (isImprovementInProgress) {
+              console.warn("Improvement timeout - resetting state");
+              showNotification({
+                message: "Request timed out. Please try again.",
+                type: "warning",
+                icon: "⏰",
+                duration: 6000,
+                dismissible: true,
+                actionText: "Try Again",
+                actionCallback: () => {
+                  handleImproveClick();
+                },
+              });
+              resetButtonState();
+              isImprovementInProgress = false;
+            }
+          }, 30000); // 30 second timeout
+        } else if (response && response.status === "limit_reached") {
+          console.log("Usage limit reached");
+          resetButtonState();
+          isImprovementInProgress = false;
+          // The background script will also send USAGE_LIMIT_REACHED message
+        } else if (response && response.status === "error") {
+          console.error("Background script returned error:", response.error);
+          showNotification({
+            message:
+              response.error || "Failed to improve prompt. Please try again.",
+            type: "error",
+            icon: "❌",
+            duration: 8000,
+            dismissible: true,
+          });
+          resetButtonState();
+          isImprovementInProgress = false;
+        } else {
+          console.log("Unexpected response from background script:", response);
+        }
       }
     }
   );
@@ -1388,7 +1435,9 @@ function showContextualHelp(context: string) {
       duration: 8000,
     },
     "platform-detected": {
-      message: `✨ PromptPilot is optimized for ${PLATFORM_CONFIGS[currentPlatform].name}. Start improving your prompts!`,
+      message: `✨ PromptPilot is optimized for ${
+        (PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default).name
+      }. Start improving your prompts!`,
       duration: 5000,
     },
   };
