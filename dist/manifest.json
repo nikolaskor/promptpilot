@@ -38,8 +38,18 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["http://localhost:4001/*"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": [
+    "http://localhost:4001/*",
+    "https://api.stripe.com/*",
+    "https://checkout.stripe.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["success.html", "cancel.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }

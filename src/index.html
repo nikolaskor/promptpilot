@@ -597,6 +597,263 @@
         transform: none !important;
       }
 
+      /* Manage Subscription Styles */
+      .manage-section {
+        text-align: center;
+      }
+
+      .manage-button {
+        background: linear-gradient(
+          135deg,
+          #1a73e8 0%,
+          #4285f4 100%
+        ) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 20px !important;
+        padding: 8px 16px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 6px rgba(26, 115, 232, 0.3) !important;
+      }
+
+      .manage-button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4) !important;
+      }
+
+      /* Pricing Modal Styles */
+      .pricing-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: modal-overlay-appear 0.3s ease;
+      }
+
+      @keyframes modal-overlay-appear {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .pricing-modal {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        animation: modal-appear 0.3s ease;
+      }
+
+      @keyframes modal-appear {
+        from {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .pricing-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e8eaed;
+      }
+
+      .pricing-header h3 {
+        margin: 0;
+        color: #3c4043;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .close-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #5f6368;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      .close-button:hover {
+        background: #f8f9fa;
+        color: #3c4043;
+      }
+
+      .pricing-plans {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .pricing-plan {
+        flex: 1;
+        border: 2px solid #e8eaed;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .pricing-plan:hover {
+        border-color: #1a73e8;
+        box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
+      }
+
+      .pricing-plan.lifetime {
+        border-color: #ff6f00;
+        background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
+      }
+
+      .pricing-plan.lifetime:hover {
+        border-color: #ff6f00;
+        box-shadow: 0 4px 12px rgba(255, 111, 0, 0.2);
+      }
+
+      .plan-badge {
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ff6f00 0%, #ff8f00 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .plan-header {
+        margin-bottom: 16px;
+      }
+
+      .plan-header h4 {
+        margin: 0 0 8px 0;
+        color: #3c4043;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .plan-price {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a73e8;
+        margin-bottom: 4px;
+      }
+
+      .pricing-plan.lifetime .plan-price {
+        color: #ff6f00;
+      }
+
+      .plan-period {
+        font-size: 12px;
+        color: #5f6368;
+        font-weight: 400;
+      }
+
+      .plan-features {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 20px 0;
+        text-align: left;
+      }
+
+      .plan-features li {
+        padding: 6px 0;
+        color: #3c4043;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+      }
+
+      .plan-features li::before {
+        content: "✓";
+        color: #4caf50;
+        font-weight: bold;
+        margin-right: 8px;
+        font-size: 14px;
+      }
+
+      .plan-button {
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .plan-button.premium {
+        background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
+        color: white;
+      }
+
+      .plan-button.premium:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(26, 115, 232, 0.4);
+      }
+
+      .plan-button.lifetime {
+        background: linear-gradient(135deg, #ff6f00 0%, #ff8f00 100%);
+        color: white;
+      }
+
+      .plan-button.lifetime:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(255, 111, 0, 0.4);
+      }
+
+      .plan-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none !important;
+        box-shadow: none !important;
+      }
+
+      .pricing-footer {
+        text-align: center;
+        padding-top: 16px;
+        border-top: 1px solid #e8eaed;
+      }
+
+      .pricing-footer p {
+        margin: 0;
+        color: #5f6368;
+        font-size: 12px;
+      }
+
       /* Responsive adjustments */
       @media (max-width: 400px) {
         body {
@@ -630,6 +887,25 @@
         .upgrade-now-button,
         .dismiss-button {
           width: 100% !important;
+        }
+
+        .pricing-modal {
+          width: 95%;
+          padding: 16px;
+          max-height: 90vh;
+        }
+
+        .pricing-plans {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .pricing-header h3 {
+          font-size: 18px;
+        }
+
+        .plan-price {
+          font-size: 20px;
         }
       }
     </style>

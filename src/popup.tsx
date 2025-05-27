@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
+import StripeService from "./utils/stripe-service";
 
 type PopupState = {
   originalPrompt: string;
@@ -17,6 +18,10 @@ type PopupState = {
   isLoadingUsage: boolean;
   showUpgradePrompt: boolean;
   nextResetDate: Date | null;
+  // Stripe payment state
+  isProcessingPayment: boolean;
+  showPricingModal: boolean;
+  stripeCustomerId: string | null;
 };
 
 const INTENT_CATEGORIES = [
@@ -44,7 +49,33 @@ const Popup: React.FC = () => {
     isLoadingUsage: true,
     showUpgradePrompt: false,
     nextResetDate: null,
+    // Stripe payment initial state
+    isProcessingPayment: false,
+    showPricingModal: false,
+    stripeCustomerId: null,
   });
+
+  // Load Stripe subscription status
+  const loadStripeSubscriptionStatus = async () => {
+    try {
+      const subscriptionStatus = await StripeService.getSubscriptionStatus();
+
+      if (subscriptionStatus.hasActiveSubscription) {
+        setState((prev) => ({
+          ...prev,
+          subscriptionStatus: subscriptionStatus.status,
+        }));
+
+        // Update backend with subscription status
+        chrome.runtime.sendMessage({
+          type: "UPDATE_USER_SETTINGS",
+          updates: { subscriptionStatus: subscriptionStatus.status },
+        });
+      }
+    } catch (error) {
+      console.error("Error loading Stripe subscription status:", error);
+    }
+  };
 
   // Load usage data from background script
   const loadUsageData = async () => {
@@ -99,8 +130,9 @@ const Popup: React.FC = () => {
   };
 
   useEffect(() => {
-    // Load usage data on popup open
+    // Load usage data and subscription status on popup open
     loadUsageData();
+    loadStripeSubscriptionStatus();
 
     // Listen for messages from the background script
     const messageListener = (message: any) => {
@@ -331,26 +363,95 @@ const Popup: React.FC = () => {
   };
 
   const handleUpgradeClick = () => {
-    // For demo purposes, simulate subscription upgrade
-    setState((prev) => ({ ...prev, showUpgradePrompt: false }));
+    setState((prev) => ({
+      ...prev,
+      showPricingModal: true,
+      showUpgradePrompt: false,
+    }));
+  };
 
-    // In a real app, this would open a payment flow
-    console.log("Upgrade to Premium clicked - would open payment flow");
+  const handlePremiumUpgrade = async () => {
+    try {
+      setState((prev) => ({ ...prev, isProcessingPayment: true }));
 
-    // For testing, we can simulate upgrading to premium
-    chrome.runtime.sendMessage(
-      {
-        type: "UPDATE_USER_SETTINGS",
-        updates: { subscriptionStatus: "premium" },
-      },
-      () => {
-        loadUsageData(); // Reload to show updated status
+      const pricing = StripeService.getPricingInfo();
+      const result = await StripeService.createCheckoutSession(
+        "user@example.com", // In a real app, get from user input or settings
+        "PromptPilot User",
+        pricing.premium.priceId,
+        "premium"
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to create checkout session");
       }
-    );
+
+      // Stripe will redirect to checkout, so we don't need to do anything else here
+    } catch (error) {
+      console.error("Error starting premium upgrade:", error);
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : "Payment failed",
+        isProcessingPayment: false,
+      }));
+    }
+  };
+
+  const handleLifetimeUpgrade = async () => {
+    try {
+      setState((prev) => ({ ...prev, isProcessingPayment: true }));
+
+      const pricing = StripeService.getPricingInfo();
+      const result = await StripeService.createCheckoutSession(
+        "user@example.com", // In a real app, get from user input or settings
+        "PromptPilot User",
+        pricing.lifetime.priceId,
+        "lifetime"
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to create checkout session");
+      }
+
+      // Stripe will redirect to checkout, so we don't need to do anything else here
+    } catch (error) {
+      console.error("Error starting lifetime upgrade:", error);
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : "Payment failed",
+        isProcessingPayment: false,
+      }));
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const result = await StripeService.openCustomerPortal();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to open customer portal");
+      }
+    } catch (error) {
+      console.error("Error opening customer portal:", error);
+      setState((prev) => ({
+        ...prev,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to open subscription management",
+      }));
+    }
   };
 
   const handleDismissUpgrade = () => {
     setState((prev) => ({ ...prev, showUpgradePrompt: false }));
+  };
+
+  const handleClosePricingModal = () => {
+    setState((prev) => ({
+      ...prev,
+      showPricingModal: false,
+      isProcessingPayment: false,
+    }));
   };
 
   const renderUsageStats = () => {
@@ -429,10 +530,19 @@ const Popup: React.FC = () => {
           </>
         )}
 
-        {state.subscriptionStatus === "free" && (
+        {state.subscriptionStatus === "free" ? (
           <div className="upgrade-section">
             <button className="upgrade-button" onClick={handleUpgradeClick}>
               ⭐ Upgrade to Premium
+            </button>
+          </div>
+        ) : (
+          <div className="manage-section">
+            <button
+              className="manage-button"
+              onClick={handleManageSubscription}
+            >
+              ⚙️ Manage Subscription
             </button>
           </div>
         )}
@@ -503,6 +613,80 @@ const Popup: React.FC = () => {
     return (
       <div className="error-message" style={{ color: "red" }}>
         {state.error}
+      </div>
+    );
+  };
+
+  const renderPricingModal = () => {
+    if (!state.showPricingModal) return null;
+
+    const pricing = StripeService.getPricingInfo();
+
+    return (
+      <div className="pricing-modal-overlay" onClick={handleClosePricingModal}>
+        <div className="pricing-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="pricing-header">
+            <h3>Choose Your Plan</h3>
+            <button className="close-button" onClick={handleClosePricingModal}>
+              ×
+            </button>
+          </div>
+
+          <div className="pricing-plans">
+            <div className="pricing-plan">
+              <div className="plan-header">
+                <h4>{pricing.premium.name}</h4>
+                <div className="plan-price">
+                  {pricing.premium.price}
+                  <span className="plan-period">
+                    /{pricing.premium.billing.split(" ")[1]}
+                  </span>
+                </div>
+              </div>
+              <ul className="plan-features">
+                {pricing.premium.features.map((feature, index) => (
+                  <li key={index}>✓ {feature}</li>
+                ))}
+              </ul>
+              <button
+                className="plan-button premium"
+                onClick={handlePremiumUpgrade}
+                disabled={state.isProcessingPayment}
+              >
+                {state.isProcessingPayment ? "Processing..." : "Choose Premium"}
+              </button>
+            </div>
+
+            <div className="pricing-plan lifetime">
+              <div className="plan-badge">Best Value</div>
+              <div className="plan-header">
+                <h4>{pricing.lifetime.name}</h4>
+                <div className="plan-price">
+                  {pricing.lifetime.price}
+                  <span className="plan-period">one-time</span>
+                </div>
+              </div>
+              <ul className="plan-features">
+                {pricing.lifetime.features.map((feature, index) => (
+                  <li key={index}>✓ {feature}</li>
+                ))}
+              </ul>
+              <button
+                className="plan-button lifetime"
+                onClick={handleLifetimeUpgrade}
+                disabled={state.isProcessingPayment}
+              >
+                {state.isProcessingPayment
+                  ? "Processing..."
+                  : "Choose Lifetime"}
+              </button>
+            </div>
+          </div>
+
+          <div className="pricing-footer">
+            <p>Secure payment powered by Stripe</p>
+          </div>
+        </div>
       </div>
     );
   };
@@ -599,6 +783,8 @@ const Popup: React.FC = () => {
       <div className="footer">
         <p>Powered by OpenAI</p>
       </div>
+
+      {renderPricingModal()}
     </div>
   );
 };

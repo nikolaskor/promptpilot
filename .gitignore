@@ -16,6 +16,33 @@ dev-debug.log
 node_modules/
 
 # Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Stripe specific files
+stripe-config.json
+stripe-keys.txt
+stripe-setup.txt
+*stripe-secret*
+*stripe-key*
+
+# API Keys and secrets
+*api-key*
+*secret*
+*private-key*
+config/secrets.json
+config/keys.json
+
+# Taskmaster configuration (may contain API keys)
+.taskmasterconfig
 
 # Editor directories and files
 .idea
@@ -28,7 +55,46 @@ node_modules/
 
 # OS specific
 .DS_Store
+Thumbs.db
 
 # Task files
 tasks.json
-tasks/ 
+
+# Build outputs that might contain sensitive data
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# Test files that might contain real API keys
+test-config.json
+test-keys.json
+*test-stripe*
+
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Local development files
+local-config.json
+dev-config.json
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+

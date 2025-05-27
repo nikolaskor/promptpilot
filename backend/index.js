@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { OpenAI } from "openai";
 import { createImprovePromptTemplate } from "./src/prompts/improve.js";
+import { StripeService } from "./src/stripe/stripe-service.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,7 @@ const PORT = 4001; // Explicitly set port to 4001 to match client configuration
 // Initialize OpenAI client if API key is available
 let openai = null;
 let demoMode = false;
+let stripeDemoMode = false;
 
 try {
   if (process.env.OPENAI_API_KEY) {
@@ -36,13 +38,29 @@ try {
   console.log("Running in demo mode due to OpenAI initialization error");
 }
 
+// Check Stripe configuration
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    console.log("Stripe API Key status: Configured ✓");
+  } else {
+    stripeDemoMode = true;
+    console.log(
+      "Stripe API Key status: Missing ✗ - Stripe endpoints will return demo responses"
+    );
+  }
+} catch (error) {
+  stripeDemoMode = true;
+  console.error("Error checking Stripe configuration:", error);
+  console.log("Running Stripe endpoints in demo mode");
+}
+
 // Middleware
 app.use(express.json());
 app.use(
   cors({
     origin: "*", // In production, restrict this to your extension ID
-    methods: ["POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "stripe-signature"],
   })
 );
 
@@ -171,17 +189,355 @@ async function improvePromptWithAI(prompt) {
   }
 }
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  // Check if OpenAI API key is set
-  const apiKeyStatus = process.env.OPENAI_API_KEY ? "configured" : "missing";
+// Stripe Endpoints
 
-  res.json({
-    status: "ok",
-    openai: apiKeyStatus,
-    model: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
-    demoMode: demoMode,
-  });
+/**
+ * Create a new customer and checkout session
+ */
+app.post("/stripe/create-checkout", async (req, res) => {
+  console.log("Received /stripe/create-checkout request:", req.body);
+
+  try {
+    const { email, name, priceId, successUrl, cancelUrl } = req.body;
+
+    if (!email || !priceId) {
+      return res.status(400).json({
+        error: "Missing required fields: email and priceId",
+      });
+    }
+
+    // Demo mode response if Stripe is not configured
+    if (stripeDemoMode) {
+      console.log("Stripe demo mode: Returning simulated checkout session");
+      return res.json({
+        sessionId: "cs_demo_" + Date.now(),
+        url: "https://checkout.stripe.com/demo",
+        customerId: "cus_demo_" + Date.now(),
+        demoMode: true,
+        message:
+          "Demo mode: Stripe not configured. See backend/STRIPE_SETUP_GUIDE.md for setup instructions.",
+      });
+    }
+
+    // Create or get customer
+    const customer = await StripeService.createCustomer(email, name);
+
+    // Create checkout session
+    const session = await StripeService.createCheckoutSession(
+      customer.id,
+      priceId,
+      successUrl || `${process.env.FRONTEND_URL}/success`,
+      cancelUrl || `${process.env.FRONTEND_URL}/cancel`
+    );
+
+    res.json({
+      sessionId: session.id,
+      url: session.url,
+      customerId: customer.id,
+    });
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    res.status(500).json({
+      error: "Failed to create checkout session",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * Get customer subscription status
+ */
+app.post("/stripe/subscription-status", async (req, res) => {
+  console.log("Received /stripe/subscription-status request:", req.body);
+
+  try {
+    const { customerId } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({
+        error: "Missing customerId",
+      });
+    }
+
+    // Demo mode response if Stripe is not configured
+    if (stripeDemoMode) {
+      console.log("Stripe demo mode: Returning simulated subscription status");
+      return res.json({
+        status: "free",
+        hasActiveSubscription: false,
+        demoMode: true,
+        message:
+          "Demo mode: Stripe not configured. See backend/STRIPE_SETUP_GUIDE.md for setup instructions.",
+      });
+    }
+
+    const status = await StripeService.getSubscriptionStatus(customerId);
+    res.json(status);
+  } catch (error) {
+    console.error("Error getting subscription status:", error);
+    res.status(500).json({
+      error: "Failed to get subscription status",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * Create customer portal session
+ */
+app.post("/stripe/create-portal", async (req, res) => {
+  console.log("Received /stripe/create-portal request:", req.body);
+
+  try {
+    const { customerId, returnUrl } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({
+        error: "Missing customerId",
+      });
+    }
+
+    // Demo mode response if Stripe is not configured
+    if (stripeDemoMode) {
+      console.log("Stripe demo mode: Customer portal not available");
+      return res.status(400).json({
+        error:
+          "Customer portal not available in demo mode. Please configure Stripe API keys.",
+        demoMode: true,
+        message:
+          "Demo mode: Stripe not configured. See backend/STRIPE_SETUP_GUIDE.md for setup instructions.",
+      });
+    }
+
+    const session = await StripeService.createPortalSession(
+      customerId,
+      returnUrl || process.env.FRONTEND_URL
+    );
+
+    res.json({
+      url: session.url,
+    });
+  } catch (error) {
+    console.error("Error creating portal session:", error);
+    res.status(500).json({
+      error: "Failed to create portal session",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * Cancel subscription
+ */
+app.post("/stripe/cancel-subscription", async (req, res) => {
+  console.log("Received /stripe/cancel-subscription request:", req.body);
+
+  try {
+    const { subscriptionId } = req.body;
+
+    if (!subscriptionId) {
+      return res.status(400).json({
+        error: "Missing subscriptionId",
+      });
+    }
+
+    const subscription = await StripeService.cancelSubscription(subscriptionId);
+    res.json({
+      status: "cancelled",
+      subscriptionId: subscription.id,
+    });
+  } catch (error) {
+    console.error("Error cancelling subscription:", error);
+    res.status(500).json({
+      error: "Failed to cancel subscription",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * Stripe webhook endpoint with enhanced security and logging
+ */
+app.post(
+  "/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const startTime = Date.now();
+    console.log("Received Stripe webhook at", new Date().toISOString());
+
+    try {
+      const signature = req.headers["stripe-signature"];
+
+      if (!signature) {
+        console.error("Missing Stripe signature header");
+        return res.status(400).json({
+          error: "Missing Stripe signature header",
+        });
+      }
+
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        console.error("STRIPE_WEBHOOK_SECRET not configured");
+        return res.status(500).json({
+          error: "Webhook secret not configured",
+        });
+      }
+
+      // Verify webhook signature
+      const event = StripeService.verifyWebhook(req.body, signature);
+      console.log(`Webhook event verified: ${event.type} (ID: ${event.id})`);
+
+      // Handle the webhook event
+      const result = await StripeService.handleWebhookEvent(event);
+
+      const processingTime = Date.now() - startTime;
+      console.log(`Webhook processed in ${processingTime}ms:`, result);
+
+      // Return success response
+      res.status(200).json({
+        received: true,
+        eventId: event.id,
+        eventType: event.type,
+        result,
+        processingTime,
+      });
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      console.error(`Webhook error after ${processingTime}ms:`, error.message);
+
+      // Return appropriate error status
+      if (error.message.includes("signature")) {
+        return res.status(400).json({
+          error: "Webhook signature verification failed",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return res.status(500).json({
+        error: "Webhook processing failed",
+        timestamp: new Date().toISOString(),
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+);
+
+/**
+ * Webhook validation endpoint for testing
+ */
+app.get("/stripe/webhook-status", async (req, res) => {
+  try {
+    const validation = await StripeService.validateWebhookConfig();
+    const recentEvents = await StripeService.getWebhookEvents(5);
+
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      validation,
+      recentEvents: recentEvents.map((event) => ({
+        id: event.id,
+        type: event.type,
+        created: new Date(event.created * 1000).toISOString(),
+        processed: event.request ? "yes" : "no",
+      })),
+    });
+  } catch (error) {
+    console.error("Error getting webhook status:", error);
+    res.status(500).json({
+      error: "Failed to get webhook status",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Health check endpoint with comprehensive status
+app.get("/health", async (req, res) => {
+  try {
+    // Check if OpenAI API key is set
+    const apiKeyStatus = process.env.OPENAI_API_KEY ? "configured" : "missing";
+
+    // Check Stripe configuration
+    const stripeSecretStatus = process.env.STRIPE_SECRET_KEY
+      ? "configured"
+      : "missing";
+    const stripePublishableStatus = process.env.STRIPE_PUBLISHABLE_KEY
+      ? "configured"
+      : "missing";
+    const stripeWebhookStatus = process.env.STRIPE_WEBHOOK_SECRET
+      ? "configured"
+      : "missing";
+    const stripePremiumPriceStatus = process.env.STRIPE_PREMIUM_PRICE_ID
+      ? "configured"
+      : "missing";
+    const stripeLifetimePriceStatus = process.env.STRIPE_LIFETIME_PRICE_ID
+      ? "configured"
+      : "missing";
+
+    // Test Stripe connection if keys are available
+    let stripeConnectionStatus = "not_tested";
+    if (stripeSecretStatus === "configured") {
+      try {
+        // Simple test to verify Stripe connection
+        const testResult = await StripeService.testConnection();
+        stripeConnectionStatus = testResult ? "connected" : "failed";
+      } catch (error) {
+        stripeConnectionStatus = "failed";
+        console.error("Stripe connection test failed:", error.message);
+      }
+    }
+
+    const healthData = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+      services: {
+        openai: {
+          status: apiKeyStatus,
+          model: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
+          demoMode: demoMode,
+        },
+        stripe: {
+          status: stripeConnectionStatus,
+          demoMode: stripeDemoMode,
+          configuration: {
+            secretKey: stripeSecretStatus,
+            publishableKey: stripePublishableStatus,
+            webhookSecret: stripeWebhookStatus,
+            premiumPriceId: stripePremiumPriceStatus,
+            lifetimePriceId: stripeLifetimePriceStatus,
+          },
+        },
+      },
+      server: {
+        port: PORT,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      },
+    };
+
+    // Set appropriate status code based on service health
+    const hasErrors =
+      apiKeyStatus === "missing" ||
+      stripeConnectionStatus === "failed" ||
+      stripeSecretStatus === "missing";
+
+    res.status(hasErrors ? 503 : 200).json(healthData);
+  } catch (error) {
+    console.error("Health check error:", error);
+    res.status(500).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      error: "Health check failed",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 });
 
 // Start the server
