@@ -47,8 +47,8 @@ export class StripeService {
           email,
           name,
           priceId,
-          successUrl: chrome.runtime.getURL("success.html"),
-          cancelUrl: chrome.runtime.getURL("cancel.html"),
+          successUrl: `${BACKEND_URL}/stripe/success`,
+          cancelUrl: `${BACKEND_URL}/stripe/cancel`,
         }),
       });
 

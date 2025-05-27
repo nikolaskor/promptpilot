@@ -566,6 +566,144 @@ app.get("/stripe/webhook-status", async (req, res) => {
   }
 });
 
+/**
+ * Stripe checkout success redirect handler
+ */
+app.get("/stripe/success", (req, res) => {
+  console.log("Stripe checkout success redirect");
+
+  // Create a simple HTML page that closes the tab and notifies the extension
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Payment Successful</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          text-align: center; 
+          padding: 50px; 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+        }
+        .container { 
+          max-width: 400px; 
+          margin: 0 auto; 
+          background: white; 
+          color: #333; 
+          padding: 30px; 
+          border-radius: 10px; 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .success-icon { 
+          font-size: 48px; 
+          color: #4CAF50; 
+          margin-bottom: 20px; 
+        }
+        h1 { color: #4CAF50; margin-bottom: 10px; }
+        p { margin-bottom: 20px; color: #666; }
+        .close-btn {
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 16px;
+        }
+        .close-btn:hover { background: #45a049; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Payment Successful!</h1>
+        <p>Thank you for upgrading to PromptPilot Premium. Your subscription is now active.</p>
+        <button class="close-btn" onclick="closeTab()">Close Tab</button>
+      </div>
+      <script>
+        function closeTab() {
+          window.close();
+        }
+        // Auto-close after 5 seconds
+        setTimeout(closeTab, 5000);
+      </script>
+    </body>
+    </html>
+  `;
+
+  res.send(html);
+});
+
+/**
+ * Stripe checkout cancel redirect handler
+ */
+app.get("/stripe/cancel", (req, res) => {
+  console.log("Stripe checkout cancel redirect");
+
+  // Create a simple HTML page that closes the tab
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Payment Cancelled</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          text-align: center; 
+          padding: 50px; 
+          background: linear-gradient(135deg, #ff7b7b 0%, #ff9a9e 100%);
+          color: white;
+        }
+        .container { 
+          max-width: 400px; 
+          margin: 0 auto; 
+          background: white; 
+          color: #333; 
+          padding: 30px; 
+          border-radius: 10px; 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .cancel-icon { 
+          font-size: 48px; 
+          color: #f44336; 
+          margin-bottom: 20px; 
+        }
+        h1 { color: #f44336; margin-bottom: 10px; }
+        p { margin-bottom: 20px; color: #666; }
+        .close-btn {
+          background: #f44336;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 16px;
+        }
+        .close-btn:hover { background: #da190b; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="cancel-icon">❌</div>
+        <h1>Payment Cancelled</h1>
+        <p>Your payment was cancelled. You can try again anytime from the PromptPilot extension.</p>
+        <button class="close-btn" onclick="closeTab()">Close Tab</button>
+      </div>
+      <script>
+        function closeTab() {
+          window.close();
+        }
+        // Auto-close after 3 seconds
+        setTimeout(closeTab, 3000);
+      </script>
+    </body>
+    </html>
+  `;
+
+  res.send(html);
+});
+
 // Health check endpoint with comprehensive status
 app.get("/health", async (req, res) => {
   try {
