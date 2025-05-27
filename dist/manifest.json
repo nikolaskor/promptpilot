@@ -38,12 +38,20 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity"],
   "host_permissions": [
     "http://localhost:4001/*",
     "https://api.stripe.com/*",
-    "https://checkout.stripe.com/*"
+    "https://checkout.stripe.com/*",
+    "https://www.googleapis.com/*"
   ],
+  "oauth2": {
+    "client_id": "1128556524-vacsol5k8o1pdms42mi0focqchq3kp94.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
   "web_accessible_resources": [
     {
       "resources": ["success.html", "cancel.html", "success.js", "cancel.js"],

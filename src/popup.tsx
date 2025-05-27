@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import StripeService from "./utils/stripe-service";
+import { GoogleAuthService, GoogleUser } from "./utils/google-auth";
 
 type PopupState = {
   originalPrompt: string;
@@ -22,6 +23,9 @@ type PopupState = {
   isProcessingPayment: boolean;
   showPricingModal: boolean;
   stripeCustomerId: string | null;
+  // Google user for checkout
+  googleUser: GoogleUser | null;
+  isSigningIn: boolean;
 };
 
 const INTENT_CATEGORIES = [
@@ -53,6 +57,9 @@ const Popup: React.FC = () => {
     isProcessingPayment: false,
     showPricingModal: false,
     stripeCustomerId: null,
+    // Google user for checkout
+    googleUser: null,
+    isSigningIn: false,
   });
 
   // Load Stripe subscription status
@@ -129,10 +136,23 @@ const Popup: React.FC = () => {
     }
   };
 
+  // Load stored Google user on component mount
+  const loadGoogleUser = async () => {
+    try {
+      const user = await GoogleAuthService.getStoredUser();
+      if (user) {
+        setState((prev) => ({ ...prev, googleUser: user }));
+      }
+    } catch (error) {
+      console.error("Error loading stored Google user:", error);
+    }
+  };
+
   useEffect(() => {
     // Load usage data and subscription status on popup open
     loadUsageData();
     loadStripeSubscriptionStatus();
+    loadGoogleUser();
 
     // Listen for messages from the background script
     const messageListener = (message: any) => {
@@ -374,14 +394,37 @@ const Popup: React.FC = () => {
     planType: "monthly" | "annual" | "lifetime"
   ) => {
     try {
-      setState((prev) => ({ ...prev, isProcessingPayment: true }));
+      setState((prev) => ({ ...prev, isProcessingPayment: true, error: null }));
 
+      // Try to get stored Google user first
+      let user = state.googleUser || (await GoogleAuthService.getStoredUser());
+
+      // If no stored user, prompt for Google Sign-In
+      if (!user) {
+        setState((prev) => ({ ...prev, isSigningIn: true }));
+
+        const signInResult = await GoogleAuthService.signIn();
+
+        setState((prev) => ({ ...prev, isSigningIn: false }));
+
+        if (!signInResult.success) {
+          throw new Error(
+            signInResult.error || "Failed to sign in with Google"
+          );
+        }
+
+        user = signInResult.user!;
+        setState((prev) => ({ ...prev, googleUser: user }));
+      }
+
+      console.log("Getting pricing info...");
       const pricing = await StripeService.getPricingInfo();
       const selectedPlan = pricing[planType];
 
+      console.log("Creating checkout session...");
       const result = await StripeService.createCheckoutSession(
-        "user@example.com", // In a real app, get from user input or settings
-        "PromptPilot User",
+        user.email,
+        user.name,
         selectedPlan.priceId,
         planType
       );
@@ -390,13 +433,25 @@ const Popup: React.FC = () => {
         throw new Error(result.error || "Failed to create checkout session");
       }
 
-      // Stripe will redirect to checkout, so we don't need to do anything else here
+      console.log(
+        "Checkout session created successfully, opening in new tab..."
+      );
+
+      // Give a brief moment for the tab to open, then reset the state
+      setTimeout(() => {
+        setState((prev) => ({
+          ...prev,
+          isProcessingPayment: false,
+          showPricingModal: false,
+        }));
+      }, 1000);
     } catch (error) {
       console.error(`Error starting ${planType} upgrade:`, error);
       setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : "Payment failed",
         isProcessingPayment: false,
+        isSigningIn: false,
       }));
     }
   };
@@ -602,6 +657,8 @@ const Popup: React.FC = () => {
         onClose={handleClosePricingModal}
         onSelectPlan={handlePlanUpgrade}
         isProcessingPayment={state.isProcessingPayment}
+        isSigningIn={state.isSigningIn}
+        googleUser={state.googleUser}
       />
     );
   };
@@ -610,7 +667,15 @@ const Popup: React.FC = () => {
     onClose: () => void;
     onSelectPlan: (planType: "monthly" | "annual" | "lifetime") => void;
     isProcessingPayment: boolean;
-  }> = ({ onClose, onSelectPlan, isProcessingPayment }) => {
+    isSigningIn: boolean;
+    googleUser: GoogleUser | null;
+  }> = ({
+    onClose,
+    onSelectPlan,
+    isProcessingPayment,
+    isSigningIn,
+    googleUser,
+  }) => {
     const [pricing, setPricing] = React.useState<{
       monthly: any;
       annual: any;
@@ -661,6 +726,48 @@ const Popup: React.FC = () => {
             </button>
           </div>
 
+          <div className="user-info-section">
+            {googleUser ? (
+              <div className="signed-in-user">
+                <div className="user-avatar">
+                  {googleUser.picture ? (
+                    <img
+                      src={googleUser.picture}
+                      alt="Profile"
+                      className="avatar-image"
+                    />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      {googleUser.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="user-details">
+                  <div className="user-name">{googleUser.name}</div>
+                  <div className="user-email">{googleUser.email}</div>
+                </div>
+                <div className="signed-in-badge">✓ Signed in with Google</div>
+              </div>
+            ) : (
+              <div className="sign-in-prompt">
+                <div className="google-icon">🔐</div>
+                <div className="sign-in-text">
+                  <h4>Sign in with Google</h4>
+                  <p>
+                    You'll be prompted to sign in with your Google account when
+                    you select a plan.
+                  </p>
+                </div>
+                {isSigningIn && (
+                  <div className="signing-in-indicator">
+                    <div className="spinner"></div>
+                    <span>Signing in...</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="pricing-plans">
             {/* Monthly Plan */}
             <div className="pricing-plan">
@@ -683,7 +790,7 @@ const Popup: React.FC = () => {
                 onClick={() => onSelectPlan("monthly")}
                 disabled={isProcessingPayment}
               >
-                {isProcessingPayment ? "Processing..." : "Choose Monthly"}
+                {isProcessingPayment ? "Opening checkout..." : "Choose Monthly"}
               </button>
             </div>
 
@@ -709,7 +816,7 @@ const Popup: React.FC = () => {
                 onClick={() => onSelectPlan("annual")}
                 disabled={isProcessingPayment}
               >
-                {isProcessingPayment ? "Processing..." : "Choose Annual"}
+                {isProcessingPayment ? "Opening checkout..." : "Choose Annual"}
               </button>
             </div>
 
@@ -735,10 +842,24 @@ const Popup: React.FC = () => {
                 onClick={() => onSelectPlan("lifetime")}
                 disabled={isProcessingPayment}
               >
-                {isProcessingPayment ? "Processing..." : "Choose Lifetime"}
+                {isProcessingPayment
+                  ? "Opening checkout..."
+                  : "Choose Lifetime"}
               </button>
             </div>
           </div>
+
+          {isProcessingPayment && (
+            <div className="checkout-notification">
+              <div className="notification-content">
+                <div className="spinner"></div>
+                <div className="notification-text">
+                  <strong>Opening Stripe Checkout...</strong>
+                  <p>A new tab will open with your secure payment page.</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="pricing-footer">
             <p>Secure payment powered by Stripe</p>

@@ -708,6 +708,165 @@
         color: #3c4043;
       }
 
+      /* User Info Section Styles */
+      .user-info-section {
+        margin-bottom: 24px;
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e8eaed;
+      }
+
+      .input-group {
+        margin-bottom: 16px;
+      }
+
+      .input-group:last-child {
+        margin-bottom: 0;
+      }
+
+      .input-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 500;
+        color: #3c4043;
+        font-size: 14px;
+      }
+
+      .input-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e8eaed;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        transition: border-color 0.2s ease;
+        background: white;
+        box-sizing: border-box;
+      }
+
+      .input-group input:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+      }
+
+      .input-group input[type="email"]:invalid {
+        border-color: #ea4335;
+      }
+
+      /* Google Sign-In Styles */
+      .signed-in-user {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #e8f5e8;
+        border: 1px solid #34a853;
+        border-radius: 8px;
+      }
+
+      .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+
+      .avatar-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #4285f4;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      .user-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .user-name {
+        font-weight: 600;
+        color: #1a73e8;
+        margin-bottom: 2px;
+      }
+
+      .user-email {
+        font-size: 13px;
+        color: #5f6368;
+        word-break: break-all;
+      }
+
+      .signed-in-badge {
+        font-size: 12px;
+        color: #34a853;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .sign-in-prompt {
+        text-align: center;
+        padding: 16px;
+      }
+
+      .google-icon {
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+
+      .sign-in-text h4 {
+        margin: 0 0 8px 0;
+        color: #3c4043;
+        font-size: 16px;
+      }
+
+      .sign-in-text p {
+        margin: 0;
+        color: #5f6368;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      .signing-in-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+        color: #1a73e8;
+        font-size: 14px;
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e8eaed;
+        border-top: 2px solid #1a73e8;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
       .pricing-plans {
         display: flex;
         gap: 16px;
@@ -880,6 +1039,68 @@
         margin: 0;
         color: #5f6368;
         font-size: 12px;
+      }
+
+      /* Checkout Notification Styles */
+      .checkout-notification {
+        margin: 16px 0;
+        padding: 16px;
+        background: #e8f5e8;
+        border: 1px solid #34a853;
+        border-radius: 8px;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .notification-text {
+        flex: 1;
+      }
+
+      .notification-text strong {
+        color: #137333;
+        font-size: 14px;
+      }
+
+      .notification-text p {
+        margin: 4px 0 0 0;
+        color: #5f6368;
+        font-size: 12px;
+      }
+
+      /* Spinner Animation */
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #e8eaed;
+        border-top: 2px solid #34a853;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       /* Responsive adjustments */
