@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "NODE_ENV=production tsc && NODE_ENV=production vite build",
     "backend": "node backend/index.js",
     "start": "concurrently \"npm run dev\" \"npm run backend\""
   },

@@ -92,7 +92,7 @@ export class StripeService {
             quantity: 1,
           },
         ],
-        mode: priceId.includes("premium") ? "subscription" : "payment",
+        mode: "subscription",
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {

@@ -11,7 +11,7 @@ import { createImprovePromptTemplate } from "./src/prompts/improve.js";
 import { StripeService } from "./src/stripe/stripe-service.js";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: "../.env" });
 
 // Initialize Express app
 const app = express();
@@ -360,6 +360,117 @@ app.post("/stripe/cancel-subscription", async (req, res) => {
 });
 
 /**
+ * Get pricing configuration
+ */
+app.get("/stripe/pricing", (req, res) => {
+  try {
+    // Demo mode response if Stripe is not configured
+    if (stripeDemoMode) {
+      console.log("Stripe demo mode: Returning demo pricing configuration");
+      return res.json({
+        monthly: {
+          name: "Monthly Premium",
+          price: "$7.99",
+          billing: "per month",
+          savings: null,
+          features: [
+            "Unlimited prompt improvements",
+            "Priority support",
+            "Advanced AI models",
+            "Usage analytics",
+          ],
+          priceId: "price_demo_monthly",
+        },
+        annual: {
+          name: "Annual Premium",
+          price: "$69.99",
+          billing: "per year",
+          savings: "Save 26%",
+          features: [
+            "Unlimited prompt improvements",
+            "Priority support",
+            "Advanced AI models",
+            "Usage analytics",
+            "2 months free",
+          ],
+          priceId: "price_demo_annual",
+        },
+        lifetime: {
+          name: "Lifetime Access",
+          price: "$129.00",
+          billing: "one-time (Limited Offer)",
+          savings: "Best Value",
+          features: [
+            "Lifetime unlimited access",
+            "All premium features",
+            "Future updates included",
+            "Priority support",
+            "Early access to new features",
+          ],
+          priceId: "price_demo_lifetime",
+        },
+        demoMode: true,
+        message:
+          "Demo mode: Stripe not configured. See backend/STRIPE_SETUP_GUIDE.md for setup instructions.",
+      });
+    }
+
+    // Return actual pricing configuration
+    res.json({
+      monthly: {
+        name: "Monthly Premium",
+        price: "$7.99",
+        billing: "per month",
+        savings: null,
+        features: [
+          "Unlimited prompt improvements",
+          "Priority support",
+          "Advanced AI models",
+          "Usage analytics",
+        ],
+        priceId: process.env.STRIPE_MONTHLY_PRICE_ID,
+      },
+      annual: {
+        name: "Annual Premium",
+        price: "$69.99",
+        billing: "per year",
+        savings: "Save 26%",
+        features: [
+          "Unlimited prompt improvements",
+          "Priority support",
+          "Advanced AI models",
+          "Usage analytics",
+          "2 months free",
+        ],
+        priceId: process.env.STRIPE_ANNUAL_PRICE_ID,
+      },
+      lifetime: {
+        name: "Lifetime Access",
+        price: "$129.00",
+        billing: "one-time (Limited Offer)",
+        savings: "Best Value",
+        features: [
+          "Lifetime unlimited access",
+          "All premium features",
+          "Future updates included",
+          "Priority support",
+          "Early access to new features",
+        ],
+        priceId: process.env.STRIPE_LIFETIME_PRICE_ID,
+      },
+      demoMode: false,
+    });
+  } catch (error) {
+    console.error("Error getting pricing configuration:", error);
+    res.status(500).json({
+      error: "Failed to get pricing configuration",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
  * Stripe webhook endpoint with enhanced security and logging
  */
 app.post(
@@ -471,7 +582,10 @@ app.get("/health", async (req, res) => {
     const stripeWebhookStatus = process.env.STRIPE_WEBHOOK_SECRET
       ? "configured"
       : "missing";
-    const stripePremiumPriceStatus = process.env.STRIPE_PREMIUM_PRICE_ID
+    const stripeMonthlyPriceStatus = process.env.STRIPE_MONTHLY_PRICE_ID
+      ? "configured"
+      : "missing";
+    const stripeAnnualPriceStatus = process.env.STRIPE_ANNUAL_PRICE_ID
       ? "configured"
       : "missing";
     const stripeLifetimePriceStatus = process.env.STRIPE_LIFETIME_PRICE_ID
@@ -509,7 +623,8 @@ app.get("/health", async (req, res) => {
             secretKey: stripeSecretStatus,
             publishableKey: stripePublishableStatus,
             webhookSecret: stripeWebhookStatus,
-            premiumPriceId: stripePremiumPriceStatus,
+            monthlyPriceId: stripeMonthlyPriceStatus,
+            annualPriceId: stripeAnnualPriceStatus,
             lifetimePriceId: stripeLifetimePriceStatus,
           },
         },

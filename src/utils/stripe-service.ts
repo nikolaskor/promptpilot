@@ -7,6 +7,16 @@
 // Backend configuration
 const BACKEND_URL = "http://localhost:4001";
 
+// Type definitions
+interface PricingTier {
+  name: string;
+  price: string;
+  billing: string;
+  savings: string | null;
+  features: string[];
+  priceId: string;
+}
+
 /**
  * Frontend Stripe Service
  */
@@ -22,7 +32,7 @@ export class StripeService {
     email: string,
     name: string,
     priceId: string,
-    planType: "premium" | "lifetime"
+    planType: "monthly" | "annual" | "lifetime"
   ): Promise<{ success: boolean; error?: string }> {
     try {
       console.log("Creating checkout session for:", { email, planType });
@@ -223,36 +233,71 @@ export class StripeService {
   }
 
   /**
-   * Get pricing information
+   * Get pricing information from backend
    */
-  static getPricingInfo() {
-    return {
-      premium: {
-        name: "PromptPilot Premium",
-        price: "$9.99",
-        billing: "per month",
-        features: [
-          "Unlimited prompt improvements",
-          "Priority support",
-          "Advanced AI models",
-          "Usage analytics",
-        ],
-        priceId: "price_premium_monthly_id_here", // Will be replaced with actual price ID
-      },
-      lifetime: {
-        name: "PromptPilot Lifetime",
-        price: "$99.99",
-        billing: "one-time payment",
-        features: [
-          "Lifetime unlimited access",
-          "All premium features",
-          "Future updates included",
-          "Priority support",
-          "Early access to new features",
-        ],
-        priceId: "price_lifetime_one_time_id_here", // Will be replaced with actual price ID
-      },
-    };
+  static async getPricingInfo(): Promise<{
+    monthly: PricingTier;
+    annual: PricingTier;
+    lifetime: PricingTier;
+    demoMode?: boolean;
+  }> {
+    try {
+      const response = await fetch(`${BACKEND_URL}/stripe/pricing`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch pricing information");
+      }
+
+      const pricingData = await response.json();
+      return pricingData;
+    } catch (error) {
+      console.error("Error fetching pricing information:", error);
+      // Return fallback pricing if backend is unavailable
+      return {
+        monthly: {
+          name: "Monthly Premium",
+          price: "$7.99",
+          billing: "per month",
+          savings: null,
+          features: [
+            "Unlimited prompt improvements",
+            "Priority support",
+            "Advanced AI models",
+            "Usage analytics",
+          ],
+          priceId: "price_fallback_monthly",
+        },
+        annual: {
+          name: "Annual Premium",
+          price: "$69.99",
+          billing: "per year",
+          savings: "Save 26%",
+          features: [
+            "Unlimited prompt improvements",
+            "Priority support",
+            "Advanced AI models",
+            "Usage analytics",
+            "2 months free",
+          ],
+          priceId: "price_fallback_annual",
+        },
+        lifetime: {
+          name: "Lifetime Access",
+          price: "$129.00",
+          billing: "one-time (Limited Offer)",
+          savings: "Best Value",
+          features: [
+            "Lifetime unlimited access",
+            "All premium features",
+            "Future updates included",
+            "Priority support",
+            "Early access to new features",
+          ],
+          priceId: "price_fallback_lifetime",
+        },
+        demoMode: true,
+      };
+    }
   }
 
   /**

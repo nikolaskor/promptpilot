@@ -652,8 +652,8 @@
         background: white;
         border-radius: 16px;
         padding: 24px;
-        max-width: 500px;
-        width: 90%;
+        max-width: 800px;
+        width: 95%;
         max-height: 80vh;
         overflow-y: auto;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -729,6 +729,16 @@
         box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
       }
 
+      .pricing-plan.annual {
+        border-color: #34a853;
+        background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+      }
+
+      .pricing-plan.annual:hover {
+        border-color: #34a853;
+        box-shadow: 0 4px 12px rgba(52, 168, 83, 0.2);
+      }
+
       .pricing-plan.lifetime {
         border-color: #ff6f00;
         background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
@@ -753,6 +763,10 @@
         text-transform: uppercase;
       }
 
+      .pricing-plan.annual .plan-badge {
+        background: linear-gradient(135deg, #34a853 0%, #4caf50 100%);
+      }
+
       .plan-header {
         margin-bottom: 16px;
       }
@@ -769,6 +783,10 @@
         font-weight: 700;
         color: #1a73e8;
         margin-bottom: 4px;
+      }
+
+      .pricing-plan.annual .plan-price {
+        color: #34a853;
       }
 
       .pricing-plan.lifetime .plan-price {
@@ -815,14 +833,24 @@
         transition: all 0.3s ease;
       }
 
-      .plan-button.premium {
+      .plan-button.monthly {
         background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
         color: white;
       }
 
-      .plan-button.premium:hover:not(:disabled) {
+      .plan-button.monthly:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(26, 115, 232, 0.4);
+      }
+
+      .plan-button.annual {
+        background: linear-gradient(135deg, #34a853 0%, #4caf50 100%);
+        color: white;
+      }
+
+      .plan-button.annual:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(52, 168, 83, 0.4);
       }
 
       .plan-button.lifetime {

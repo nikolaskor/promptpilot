@@ -370,16 +370,20 @@ const Popup: React.FC = () => {
     }));
   };
 
-  const handlePremiumUpgrade = async () => {
+  const handlePlanUpgrade = async (
+    planType: "monthly" | "annual" | "lifetime"
+  ) => {
     try {
       setState((prev) => ({ ...prev, isProcessingPayment: true }));
 
-      const pricing = StripeService.getPricingInfo();
+      const pricing = await StripeService.getPricingInfo();
+      const selectedPlan = pricing[planType];
+
       const result = await StripeService.createCheckoutSession(
         "user@example.com", // In a real app, get from user input or settings
         "PromptPilot User",
-        pricing.premium.priceId,
-        "premium"
+        selectedPlan.priceId,
+        planType
       );
 
       if (!result.success) {
@@ -388,34 +392,7 @@ const Popup: React.FC = () => {
 
       // Stripe will redirect to checkout, so we don't need to do anything else here
     } catch (error) {
-      console.error("Error starting premium upgrade:", error);
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : "Payment failed",
-        isProcessingPayment: false,
-      }));
-    }
-  };
-
-  const handleLifetimeUpgrade = async () => {
-    try {
-      setState((prev) => ({ ...prev, isProcessingPayment: true }));
-
-      const pricing = StripeService.getPricingInfo();
-      const result = await StripeService.createCheckoutSession(
-        "user@example.com", // In a real app, get from user input or settings
-        "PromptPilot User",
-        pricing.lifetime.priceId,
-        "lifetime"
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to create checkout session");
-      }
-
-      // Stripe will redirect to checkout, so we don't need to do anything else here
-    } catch (error) {
-      console.error("Error starting lifetime upgrade:", error);
+      console.error(`Error starting ${planType} upgrade:`, error);
       setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : "Payment failed",
@@ -620,45 +597,125 @@ const Popup: React.FC = () => {
   const renderPricingModal = () => {
     if (!state.showPricingModal) return null;
 
-    const pricing = StripeService.getPricingInfo();
+    return (
+      <PricingModalComponent
+        onClose={handleClosePricingModal}
+        onSelectPlan={handlePlanUpgrade}
+        isProcessingPayment={state.isProcessingPayment}
+      />
+    );
+  };
+
+  const PricingModalComponent: React.FC<{
+    onClose: () => void;
+    onSelectPlan: (planType: "monthly" | "annual" | "lifetime") => void;
+    isProcessingPayment: boolean;
+  }> = ({ onClose, onSelectPlan, isProcessingPayment }) => {
+    const [pricing, setPricing] = React.useState<{
+      monthly: any;
+      annual: any;
+      lifetime: any;
+      demoMode?: boolean;
+    } | null>(null);
+    const [isLoading, setIsLoading] = React.useState(true);
+
+    React.useEffect(() => {
+      const loadPricing = async () => {
+        try {
+          const pricingData = await StripeService.getPricingInfo();
+          setPricing(pricingData);
+        } catch (error) {
+          console.error("Error loading pricing:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadPricing();
+    }, []);
+
+    if (isLoading || !pricing) {
+      return (
+        <div className="pricing-modal-overlay" onClick={onClose}>
+          <div className="pricing-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pricing-header">
+              <h3>Loading Plans...</h3>
+              <button className="close-button" onClick={onClose}>
+                ×
+              </button>
+            </div>
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              Loading pricing information...
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <div className="pricing-modal-overlay" onClick={handleClosePricingModal}>
+      <div className="pricing-modal-overlay" onClick={onClose}>
         <div className="pricing-modal" onClick={(e) => e.stopPropagation()}>
           <div className="pricing-header">
             <h3>Choose Your Plan</h3>
-            <button className="close-button" onClick={handleClosePricingModal}>
+            <button className="close-button" onClick={onClose}>
               ×
             </button>
           </div>
 
           <div className="pricing-plans">
+            {/* Monthly Plan */}
             <div className="pricing-plan">
               <div className="plan-header">
-                <h4>{pricing.premium.name}</h4>
+                <h4>{pricing.monthly.name}</h4>
                 <div className="plan-price">
-                  {pricing.premium.price}
-                  <span className="plan-period">
-                    /{pricing.premium.billing.split(" ")[1]}
-                  </span>
+                  {pricing.monthly.price}
+                  <span className="plan-period">/month</span>
                 </div>
               </div>
               <ul className="plan-features">
-                {pricing.premium.features.map((feature, index) => (
-                  <li key={index}>✓ {feature}</li>
-                ))}
+                {pricing.monthly.features.map(
+                  (feature: string, index: number) => (
+                    <li key={index}>✓ {feature}</li>
+                  )
+                )}
               </ul>
               <button
-                className="plan-button premium"
-                onClick={handlePremiumUpgrade}
-                disabled={state.isProcessingPayment}
+                className="plan-button monthly"
+                onClick={() => onSelectPlan("monthly")}
+                disabled={isProcessingPayment}
               >
-                {state.isProcessingPayment ? "Processing..." : "Choose Premium"}
+                {isProcessingPayment ? "Processing..." : "Choose Monthly"}
               </button>
             </div>
 
+            {/* Annual Plan */}
+            <div className="pricing-plan annual">
+              <div className="plan-badge">{pricing.annual.savings}</div>
+              <div className="plan-header">
+                <h4>{pricing.annual.name}</h4>
+                <div className="plan-price">
+                  {pricing.annual.price}
+                  <span className="plan-period">/year</span>
+                </div>
+              </div>
+              <ul className="plan-features">
+                {pricing.annual.features.map(
+                  (feature: string, index: number) => (
+                    <li key={index}>✓ {feature}</li>
+                  )
+                )}
+              </ul>
+              <button
+                className="plan-button annual"
+                onClick={() => onSelectPlan("annual")}
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? "Processing..." : "Choose Annual"}
+              </button>
+            </div>
+
+            {/* Lifetime Plan */}
             <div className="pricing-plan lifetime">
-              <div className="plan-badge">Best Value</div>
+              <div className="plan-badge">{pricing.lifetime.savings}</div>
               <div className="plan-header">
                 <h4>{pricing.lifetime.name}</h4>
                 <div className="plan-price">
@@ -667,24 +724,29 @@ const Popup: React.FC = () => {
                 </div>
               </div>
               <ul className="plan-features">
-                {pricing.lifetime.features.map((feature, index) => (
-                  <li key={index}>✓ {feature}</li>
-                ))}
+                {pricing.lifetime.features.map(
+                  (feature: string, index: number) => (
+                    <li key={index}>✓ {feature}</li>
+                  )
+                )}
               </ul>
               <button
                 className="plan-button lifetime"
-                onClick={handleLifetimeUpgrade}
-                disabled={state.isProcessingPayment}
+                onClick={() => onSelectPlan("lifetime")}
+                disabled={isProcessingPayment}
               >
-                {state.isProcessingPayment
-                  ? "Processing..."
-                  : "Choose Lifetime"}
+                {isProcessingPayment ? "Processing..." : "Choose Lifetime"}
               </button>
             </div>
           </div>
 
           <div className="pricing-footer">
             <p>Secure payment powered by Stripe</p>
+            {pricing.demoMode && (
+              <p style={{ color: "#666", fontSize: "12px" }}>
+                Demo mode - Configure Stripe for real payments
+              </p>
+            )}
           </div>
         </div>
       </div>
