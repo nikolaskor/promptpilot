@@ -9,8 +9,6 @@ type PopupState = {
   isLoading: boolean;
   error: string | null;
   isCopied: boolean;
-  selectedIntent: string;
-  isDropdownOpen: boolean;
   // Usage tracking state
   usageCount: number;
   monthlyLimit: number;
@@ -28,14 +26,6 @@ type PopupState = {
   isSigningIn: boolean;
 };
 
-const INTENT_CATEGORIES = [
-  "Academic",
-  "Professional",
-  "Creative",
-  "Technical",
-  "Personal",
-];
-
 const Popup: React.FC = () => {
   const [state, setState] = useState<PopupState>({
     originalPrompt: "",
@@ -43,8 +33,6 @@ const Popup: React.FC = () => {
     isLoading: false,
     error: null,
     isCopied: false,
-    selectedIntent: "",
-    isDropdownOpen: false,
     // Usage tracking initial state
     usageCount: 0,
     monthlyLimit: 20,
@@ -308,78 +296,9 @@ const Popup: React.FC = () => {
     }
   }, [state.isCopied]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (state.isDropdownOpen && !target.closest(".dropdown-container")) {
-        setState((prev) => ({ ...prev, isDropdownOpen: false }));
-      }
-    };
-
-    if (state.isDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [state.isDropdownOpen]);
-
-  const handleImprove = () => {
-    setState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      improvedPrompt: "",
-    }));
-    try {
-      chrome.runtime.sendMessage(
-        {
-          type: "IMPROVE_PROMPT",
-          text: state.originalPrompt,
-        },
-        (response) => {
-          const lastError = chrome.runtime.lastError;
-          if (lastError) {
-            console.log("Error sending improve request:", lastError.message);
-            setState((prev) => ({
-              ...prev,
-              error:
-                "Connection error. Please check if the backend is running.",
-              isLoading: false,
-            }));
-          }
-        }
-      );
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        error: "Failed to send improve request",
-        isLoading: false,
-      }));
-    }
-  };
-
   const handleCopy = () => {
     navigator.clipboard.writeText(state.improvedPrompt);
     setState((prev) => ({ ...prev, isCopied: true }));
-  };
-
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setState((prev) => ({ ...prev, originalPrompt: e.target.value }));
-  };
-
-  const handleDropdownToggle = () => {
-    setState((prev) => ({ ...prev, isDropdownOpen: !prev.isDropdownOpen }));
-  };
-
-  const handleIntentSelect = (intent: string) => {
-    setState((prev) => ({
-      ...prev,
-      selectedIntent: intent,
-      isDropdownOpen: false,
-    }));
   };
 
   const handleUpgradeClick = () => {
@@ -881,64 +800,6 @@ const Popup: React.FC = () => {
 
       {renderUpgradePrompt()}
       {renderUsageStats()}
-
-      <div>
-        <div className="label">Original Prompt</div>
-        <textarea
-          value={state.originalPrompt}
-          onChange={handleTextChange}
-          placeholder="Your original prompt text will appear here"
-          disabled={state.isLoading}
-        />
-      </div>
-
-      <div className="intent-selection">
-        <div className="intent-selector-container">
-          <button
-            className={`intent-icon-button ${
-              state.selectedIntent ? "selected" : ""
-            }`}
-            onClick={handleDropdownToggle}
-            type="button"
-            title={
-              state.selectedIntent
-                ? `Intent: ${state.selectedIntent}`
-                : "Select intent category"
-            }
-          >
-            <span className="intent-icon">🎯</span>
-            {state.selectedIntent && <span className="intent-indicator"></span>}
-          </button>
-          {state.isDropdownOpen && (
-            <div className="intent-dropdown">
-              <div className="intent-dropdown-header">Select Intent</div>
-              <ul className="intent-dropdown-menu">
-                {INTENT_CATEGORIES.map((category) => (
-                  <li
-                    key={category}
-                    className="intent-dropdown-item"
-                    onClick={() => handleIntentSelect(category)}
-                  >
-                    {category}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="button-row">
-        <button
-          onClick={handleImprove}
-          disabled={state.isLoading || !state.originalPrompt}
-          className={`improve-button ${state.isLoading ? "loading" : ""}`}
-        >
-          <span className="improve-icon">{state.isLoading ? "" : "⚡"}</span>
-          {state.isLoading ? "Improving..." : "Improve Prompt"}
-          {state.isLoading && <span className="loader"></span>}
-        </button>
-      </div>
 
       {renderErrorMessage()}
 

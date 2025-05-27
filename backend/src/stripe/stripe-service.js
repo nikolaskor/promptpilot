@@ -122,7 +122,7 @@ export class StripeService {
       });
 
       return subscriptions.data;
-    } catch (error) {
+    } catch (error) { 
       console.error("Error fetching customer subscriptions:", error);
       throw error;
     }
