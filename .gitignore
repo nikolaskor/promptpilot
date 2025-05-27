@@ -1,7 +1,7 @@
 node_modules
 .env
 documentations
-.cursor/mcp.json
+.cursor/
 
 # Added by Claude Task Master
 # Logs
@@ -42,7 +42,7 @@ config/secrets.json
 config/keys.json
 
 # Taskmaster configuration (may contain API keys)
-# .taskmasterconfig
+.taskmasterconfig
 
 # Editor directories and files
 .idea
@@ -58,7 +58,8 @@ config/keys.json
 Thumbs.db
 
 # Task files
-# tasks.json
+tasks/
+tasks.json
 
 # Build outputs that might contain sensitive data
 dist/
