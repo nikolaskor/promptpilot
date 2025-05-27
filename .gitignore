@@ -66,11 +66,6 @@ build/
 *.tgz
 *.tar.gz
 
-# Test files that might contain real API keys
-test-config.json
-test-keys.json
-*test-stripe*
-
 
 # Backup files
 *.bak
