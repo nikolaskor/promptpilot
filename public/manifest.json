@@ -46,7 +46,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["success.html", "cancel.html"],
+      "resources": ["success.html", "cancel.html", "success.js", "cancel.js"],
       "matches": ["<all_urls>"]
     }
   ],

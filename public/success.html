@@ -145,6 +145,34 @@
         color: #9aa0a6;
         font-size: 12px;
       }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      .status-message {
+        margin-top: 16px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        display: none;
+      }
+
+      .status-message.error {
+        background: #fef7f0;
+        color: #d93025;
+        border: 1px solid #fce8e6;
+        display: block;
+      }
+
+      .status-message.success {
+        background: #e8f5e8;
+        color: #137333;
+        border: 1px solid #ceead6;
+        display: block;
+      }
     </style>
   </head>
   <body>
@@ -168,41 +196,21 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-primary" onclick="openExtension()">
+        <button class="btn btn-primary" id="openExtensionBtn">
           Open PromptPilot
         </button>
-        <button class="btn btn-secondary" onclick="manageSubscription()">
+        <button class="btn btn-secondary" id="manageSubscriptionBtn">
           Manage Subscription
         </button>
       </div>
+
+      <div class="status-message" id="statusMessage"></div>
 
       <div class="footer">
         <p>Need help? Contact us at support@promptpilot.com</p>
       </div>
     </div>
 
-    <script>
-      function openExtension() {
-        // Close this tab and focus on extension
-        chrome.tabs.getCurrent((tab) => {
-          chrome.tabs.remove(tab.id);
-          chrome.action.openPopup();
-        });
-      }
-
-      function manageSubscription() {
-        // Open customer portal
-        chrome.runtime.sendMessage({
-          type: "OPEN_CUSTOMER_PORTAL",
-        });
-      }
-
-      // Auto-close after 10 seconds if user doesn't interact
-      setTimeout(() => {
-        if (document.visibilityState === "visible") {
-          openExtension();
-        }
-      }, 10000);
-    </script>
+    <script src="success.js"></script>
   </body>
 </html>

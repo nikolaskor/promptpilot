@@ -410,6 +410,92 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Handle OPEN_CUSTOMER_PORTAL message
+  if (request.type === "OPEN_CUSTOMER_PORTAL") {
+    console.log("Opening customer portal...");
+
+    chrome.storage.local.get(["stripeCustomerId"], async (result) => {
+      const customerId = result.stripeCustomerId;
+
+      if (!customerId) {
+        console.error("No customer ID found");
+        sendResponse({
+          status: "error",
+          error: "No customer ID found. Please complete a purchase first.",
+        });
+        return;
+      }
+
+      try {
+        // Create portal session via backend
+        const response = await fetch(
+          "http://localhost:4001/stripe/create-portal",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              customerId,
+              returnUrl: chrome.runtime.getURL("index.html"),
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create portal session");
+        }
+
+        const { url, demoMode } = await response.json();
+
+        // Handle demo mode
+        if (demoMode) {
+          console.log("Demo mode: Customer portal not available");
+          sendResponse({
+            status: "error",
+            error:
+              "Customer portal not available in demo mode. Please configure Stripe API keys.",
+          });
+          return;
+        }
+
+        // Open portal in new tab
+        chrome.tabs.create({ url });
+        sendResponse({ status: "success" });
+      } catch (error) {
+        console.error("Error opening customer portal:", error);
+        sendResponse({
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
+
+    return true; // Keep the message channel open
+  }
+
+  // Handle OPEN_EXTENSION message
+  if (request.type === "OPEN_EXTENSION") {
+    console.log("Opening extension popup...");
+
+    // Close the current tab if it's a success/cancel page
+    if (sender.tab && sender.tab.id) {
+      chrome.tabs.remove(sender.tab.id);
+    }
+
+    // Try to open the popup
+    try {
+      chrome.action.openPopup();
+      sendResponse({ status: "success" });
+    } catch (error) {
+      console.error("Error opening popup:", error);
+      sendResponse({ status: "error", error: "Failed to open popup" });
+    }
+
+    return true;
+  }
+
   // Default response for unhandled messages
   console.log("Unhandled message type:", request.type);
   sendResponse({ status: "unhandled_message_type" });
