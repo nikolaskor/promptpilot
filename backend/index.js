@@ -64,6 +64,14 @@ app.use(
   })
 );
 
+// Add this after the CORS middleware (around line 50)
+app.use((req, res, next) => {
+  console.log(
+    `${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip}`
+  );
+  next();
+});
+
 // Main endpoint for improving prompts
 app.post("/improve", async (req, res) => {
   console.log("Received /improve request:", req.body);
@@ -791,6 +799,22 @@ app.get("/health", async (req, res) => {
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
+});
+
+// Add error handling middleware at the very end, before app.listen()
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// Add a simple root route for testing
+app.get("/", (req, res) => {
+  console.log("Root endpoint accessed successfully");
+  res.json({
+    message: "PromptPilot Backend is running!",
+    timestamp: new Date().toISOString(),
+    port: PORT,
+  });
 });
 
 // Start the server
