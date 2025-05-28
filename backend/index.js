@@ -15,7 +15,7 @@ dotenv.config({ path: "../.env" });
 
 // Initialize Express app
 const app = express();
-const PORT = 4001; // Explicitly set port to 4001 to match client configuration
+const PORT = process.env.PORT || 4001; // Explicitly set port to 4001 to match client configuration
 
 // Initialize OpenAI client if API key is available
 let openai = null;
