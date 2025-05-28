@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptPilot Content Script Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .test-area {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+      textarea,
+      input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      .contenteditable {
+        border: 1px solid #ccc;
+        padding: 10px;
+        min-height: 100px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .error-log {
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin: 20px 0;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PromptPilot Content Script Test</h1>
+
+    <div id="status" class="status">Loading...</div>
+
+    <div class="test-area">
+      <h3>Test Input Elements</h3>
+      <p>Try typing in these fields and look for the PromptPilot widget:</p>
+
+      <label for="text-input">Text Input:</label>
+      <input type="text" id="text-input" placeholder="Type some text here..." />
+
+      <label for="textarea">Textarea:</label>
+      <textarea
+        id="textarea"
+        placeholder="Type a longer message here..."
+      ></textarea>
+
+      <label>Contenteditable Div:</label>
+      <div
+        class="contenteditable"
+        contenteditable="true"
+        data-placeholder="Click here and type..."
+      >
+        Click here and type...
+      </div>
+    </div>
+
+    <div class="test-area">
+      <h3>Error Log</h3>
+      <div id="error-log" class="error-log">No errors detected yet...</div>
+    </div>
+
+    <div class="test-area">
+      <h3>Console Output</h3>
+      <div id="console-log" class="error-log">
+        Waiting for console messages...
+      </div>
+    </div>
+
+    <script>
+      // Capture console errors and display them
+      const errorLog = document.getElementById("error-log");
+      const consoleLog = document.getElementById("console-log");
+      const status = document.getElementById("status");
+
+      let errorCount = 0;
+      let consoleMessages = [];
+
+      // Override console methods to capture output
+      const originalConsoleLog = console.log;
+      const originalConsoleError = console.error;
+      const originalConsoleWarn = console.warn;
+
+      console.log = function (...args) {
+        originalConsoleLog.apply(console, args);
+        consoleMessages.push(`[LOG] ${args.join(" ")}`);
+        updateConsoleDisplay();
+      };
+
+      console.error = function (...args) {
+        originalConsoleError.apply(console, args);
+        consoleMessages.push(`[ERROR] ${args.join(" ")}`);
+        errorCount++;
+        updateConsoleDisplay();
+        updateStatus();
+      };
+
+      console.warn = function (...args) {
+        originalConsoleWarn.apply(console, args);
+        consoleMessages.push(`[WARN] ${args.join(" ")}`);
+        updateConsoleDisplay();
+      };
+
+      function updateConsoleDisplay() {
+        consoleLog.textContent = consoleMessages.slice(-20).join("\n");
+        consoleLog.scrollTop = consoleLog.scrollHeight;
+      }
+
+      function updateStatus() {
+        if (errorCount === 0) {
+          status.className = "status success";
+          status.textContent =
+            "✅ No errors detected! Content script loaded successfully.";
+        } else {
+          status.className = "status error";
+          status.textContent = `❌ ${errorCount} error(s) detected. Check the error log below.`;
+        }
+      }
+
+      // Listen for uncaught errors
+      window.addEventListener("error", function (event) {
+        errorCount++;
+        errorLog.textContent += `\n[${new Date().toLocaleTimeString()}] ${
+          event.error?.name || "Error"
+        }: ${event.error?.message || event.message}`;
+        errorLog.textContent += `\n  at ${event.filename}:${event.lineno}:${event.colno}`;
+        if (event.error?.stack) {
+          errorLog.textContent += `\n  Stack: ${event.error.stack}`;
+        }
+        errorLog.scrollTop = errorLog.scrollHeight;
+        updateStatus();
+      });
+
+      // Listen for unhandled promise rejections
+      window.addEventListener("unhandledrejection", function (event) {
+        errorCount++;
+        errorLog.textContent += `\n[${new Date().toLocaleTimeString()}] Unhandled Promise Rejection: ${
+          event.reason
+        }`;
+        errorLog.scrollTop = errorLog.scrollHeight;
+        updateStatus();
+      });
+
+      // Check for PromptPilot widget after a delay
+      setTimeout(() => {
+        const widget = document.getElementById("promptpilot-container");
+        if (widget) {
+          console.log("✅ PromptPilot widget found on page");
+        } else {
+          console.warn(
+            "⚠️ PromptPilot widget not found - this might be expected if not on a supported platform"
+          );
+        }
+
+        // Update status if no errors so far
+        if (errorCount === 0) {
+          updateStatus();
+        }
+      }, 3000);
+
+      // Add some interaction handlers to test the content script
+      document.getElementById("text-input").addEventListener("focus", () => {
+        console.log("Text input focused");
+      });
+
+      document.getElementById("textarea").addEventListener("focus", () => {
+        console.log("Textarea focused");
+      });
+
+      document
+        .querySelector(".contenteditable")
+        .addEventListener("focus", () => {
+          console.log("Contenteditable div focused");
+        });
+
+      // Initial status
+      setTimeout(() => {
+        if (errorCount === 0) {
+          updateStatus();
+        }
+      }, 1000);
+    </script>
+  </body>
+</html>

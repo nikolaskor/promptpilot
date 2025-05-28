@@ -120,46 +120,59 @@ const PLATFORM_CONFIGS = {
 
 // Initialize the content script
 function initialize() {
-  console.log("PromptPilot content script initializing...");
+  try {
+    console.log("PromptPilot content script initializing...");
 
-  // Detect current platform
-  detectPlatform();
+    // Detect current platform
+    detectPlatform();
 
-  // Inject styles
-  injectStyles();
+    // Inject styles
+    injectStyles();
 
-  // Wait for platform-specific load time before creating button
-  const config = PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
-  setTimeout(() => {
-    createFixedButton();
-    setupPlatformSpecificHandlers();
-  }, config.waitForLoad);
-
-  // Listen for messages from background script
-  chrome.runtime.onMessage.addListener(handleMessages);
-
-  // Add event listener for text selection
-  document.addEventListener("mouseup", handleTextSelection);
-
-  // Track input elements when clicked or focused
-  document.addEventListener("mousedown", trackTextElement);
-  document.addEventListener("focusin", trackTextElement);
-
-  // Handle dynamic content loading (for SPAs)
-  setupMutationObserver();
-
-  console.log(
-    `PromptPilot content script initialized for platform: ${currentPlatform}`
-  );
-
-  // Show onboarding notification for new users
-  showOnboardingNotification();
-
-  // Show platform-specific help if it's a recognized platform
-  if (currentPlatform !== "default") {
+    // Wait for platform-specific load time before creating button
+    const config =
+      PLATFORM_CONFIGS[currentPlatform] || PLATFORM_CONFIGS.default;
     setTimeout(() => {
-      showContextualHelp("platform-detected");
-    }, 5000);
+      try {
+        createFixedButton();
+        setupPlatformSpecificHandlers();
+      } catch (error) {
+        console.error("Error during delayed initialization:", error);
+      }
+    }, config.waitForLoad);
+
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener(handleMessages);
+
+    // Add event listener for text selection
+    document.addEventListener("mouseup", handleTextSelection);
+
+    // Track input elements when clicked or focused
+    document.addEventListener("mousedown", trackTextElement);
+    document.addEventListener("focusin", trackTextElement);
+
+    // Handle dynamic content loading (for SPAs)
+    setupMutationObserver();
+
+    console.log(
+      `PromptPilot content script initialized for platform: ${currentPlatform}`
+    );
+
+    // Show onboarding notification for new users
+    showOnboardingNotification();
+
+    // Show platform-specific help if it's a recognized platform
+    if (currentPlatform !== "default") {
+      setTimeout(() => {
+        try {
+          showContextualHelp("platform-detected");
+        } catch (error) {
+          console.error("Error showing contextual help:", error);
+        }
+      }, 5000);
+    }
+  } catch (error) {
+    console.error("Error during PromptPilot initialization:", error);
   }
 }
 
@@ -598,10 +611,25 @@ function insertTextIntoElement(element: HTMLElement, newText: string): boolean {
         const value = input.value;
         input.value =
           value.substring(0, start) + newText + value.substring(end);
-        input.setSelectionRange(start + newText.length, start + newText.length);
+
+        // Safely set selection range
+        try {
+          input.setSelectionRange(
+            start + newText.length,
+            start + newText.length
+          );
+        } catch (selectionError) {
+          console.warn("Error setting selection range:", selectionError);
+        }
       } else {
         input.value = newText;
-        input.setSelectionRange(newText.length, newText.length);
+
+        // Safely set selection range
+        try {
+          input.setSelectionRange(newText.length, newText.length);
+        } catch (selectionError) {
+          console.warn("Error setting selection range:", selectionError);
+        }
       }
 
       // Trigger events for React/Vue components
@@ -702,14 +730,47 @@ function triggerInputEvents(element: HTMLElement | null) {
 
     // For some platforms, we need to trigger React's internal events
     if (currentPlatform === "openai" || currentPlatform === "anthropic") {
-      // Trigger React's onChange by setting the value descriptor
-      const descriptor =
-        Object.getOwnPropertyDescriptor(element, "value") ||
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value") ||
-        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+      try {
+        // Only attempt this for input/textarea elements
+        if (element.tagName === "TEXTAREA" || element.tagName === "INPUT") {
+          const inputElement = element as
+            | HTMLInputElement
+            | HTMLTextAreaElement;
 
-      if (descriptor && descriptor.set) {
-        descriptor.set.call(element, (element as any).value);
+          // Get the appropriate descriptor based on element type
+          let descriptor;
+          if (element.tagName === "TEXTAREA") {
+            descriptor = Object.getOwnPropertyDescriptor(
+              HTMLTextAreaElement.prototype,
+              "value"
+            );
+          } else {
+            descriptor = Object.getOwnPropertyDescriptor(
+              HTMLInputElement.prototype,
+              "value"
+            );
+          }
+
+          // If no descriptor found, try getting it from the element itself
+          if (!descriptor) {
+            descriptor = Object.getOwnPropertyDescriptor(element, "value");
+          }
+
+          if (
+            descriptor &&
+            descriptor.set &&
+            typeof descriptor.set === "function"
+          ) {
+            // Use the current value of the element
+            const currentValue = inputElement.value;
+            descriptor.set.call(element, currentValue);
+          }
+        }
+      } catch (descriptorError) {
+        console.warn(
+          "Error triggering React descriptor events:",
+          descriptorError
+        );
       }
     }
   } catch (error) {
