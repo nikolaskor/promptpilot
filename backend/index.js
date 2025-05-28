@@ -794,8 +794,8 @@ app.get("/health", async (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
-  console.log(`PromptPilot backend server running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`PromptPilot backend server running at http://0.0.0.0:${PORT}`);
   if (demoMode) {
     console.log(
       "DEMO MODE ACTIVE: Using simulated responses instead of OpenAI API"
@@ -806,7 +806,7 @@ app.listen(PORT, () => {
   } else {
     console.log(
       "OpenAI integration active with model:",
-      process.env.OPENAI_MODEL || "gpt-3.5-turbo"
+      process.env.OPENAI_MODEL || "gpt-4o"
     );
   }
 });
