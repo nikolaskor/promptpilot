@@ -10,6 +10,41 @@ import { OpenAI } from "openai";
 import { createImprovePromptTemplate } from "./src/prompts/improve.js";
 import { StripeService } from "./src/stripe/stripe-service.js";
 
+// ADD THIS SECTION - Error handling for production stability
+console.log("Setting up error handlers...");
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (error) => {
+  console.error("🔴 UNCAUGHT EXCEPTION:", error.message);
+  console.error("Stack:", error.stack);
+  console.error("This should not cause app termination in Railway");
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("🔴 UNHANDLED PROMISE REJECTION at:", promise);
+  console.error("Reason:", reason);
+  if (reason?.stack) {
+    console.error("Stack:", reason.stack);
+  }
+  console.error("This should not cause app termination in Railway");
+});
+
+// Log process signals
+process.on("SIGTERM", () => {
+  console.log("📡 Received SIGTERM signal - graceful shutdown");
+});
+
+process.on("SIGINT", () => {
+  console.log("📡 Received SIGINT signal - graceful shutdown");
+});
+
+process.on("exit", (code) => {
+  console.log(`📡 Process exiting with code: ${code}`);
+});
+
+console.log("Error handlers set up successfully ✅");
+
 // Load environment variables
 dotenv.config({ path: "../.env" });
 
@@ -825,6 +860,22 @@ app.get("/", (req, res) => {
 // Start the server
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`PromptPilot backend server running at http://0.0.0.0:${PORT}`);
+
+  // Memory monitoring for Railway debugging
+  const memoryMonitor = setInterval(() => {
+    const memUsage = process.memoryUsage();
+    console.log("💾 Memory usage:", {
+      rss: Math.round(memUsage.rss / 1024 / 1024) + "MB",
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + "MB",
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + "MB",
+    });
+  }, 60000); // Log every 60 seconds
+
+  // Clear interval on shutdown
+  process.on("SIGTERM", () => {
+    clearInterval(memoryMonitor);
+  });
+
   if (demoMode) {
     console.log(
       "DEMO MODE ACTIVE: Using simulated responses instead of OpenAI API"
