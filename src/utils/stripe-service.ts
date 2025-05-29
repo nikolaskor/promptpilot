@@ -309,7 +309,7 @@ export class StripeService {
     demoMode: boolean;
   }> {
     try {
-      const response = await fetch(`${BACKEND_URL}/health`);
+      const response = await fetch(`${BACKEND_URL}/status`);
       const data = await response.json();
 
       return {

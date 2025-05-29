@@ -48,6 +48,11 @@ console.log("Error handlers set up successfully ✅");
 // Load environment variables
 dotenv.config();
 
+// Set NODE_ENV to production if not explicitly set
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = "production";
+}
+
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 4001; // Explicitly set port to 4001 to match client configuration
@@ -235,7 +240,7 @@ async function improvePromptWithAI(prompt) {
 
     // Call OpenAI API
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [
         { role: "system", content: template.system },
         { role: "user", content: template.user },
@@ -833,7 +838,7 @@ app.get("/health", async (req, res) => {
       services: {
         openai: {
           status: apiKeyStatus,
-          model: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
           demoMode: demoMode,
         },
         stripe: {
@@ -869,6 +874,100 @@ app.get("/health", async (req, res) => {
       status: "error",
       timestamp: new Date().toISOString(),
       error: "Health check failed",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Custom status endpoint for extension (won't be intercepted by Railway)
+app.get("/status", async (req, res) => {
+  try {
+    // Check if OpenAI API key is set
+    const apiKeyStatus = process.env.OPENAI_API_KEY ? "configured" : "missing";
+
+    // Check Stripe configuration
+    const stripeSecretStatus = process.env.STRIPE_SECRET_KEY
+      ? "configured"
+      : "missing";
+    const stripePublishableStatus = process.env.STRIPE_PUBLISHABLE_KEY
+      ? "configured"
+      : "missing";
+    const stripeWebhookStatus = process.env.STRIPE_WEBHOOK_SECRET
+      ? "configured"
+      : "missing";
+    const stripeMonthlyPriceStatus = process.env.STRIPE_MONTHLY_PRICE_ID
+      ? "configured"
+      : "missing";
+    const stripeAnnualPriceStatus = process.env.STRIPE_ANNUAL_PRICE_ID
+      ? "configured"
+      : "missing";
+    const stripeLifetimePriceStatus = process.env.STRIPE_LIFETIME_PRICE_ID
+      ? "configured"
+      : "missing";
+
+    // Test Stripe connection if keys are available
+    let stripeConnectionStatus = "not_tested";
+    if (stripeSecretStatus === "configured") {
+      try {
+        console.log("Testing Stripe connection...");
+        const testResult = await StripeService.testConnection();
+        stripeConnectionStatus = testResult ? "connected" : "failed";
+        console.log(
+          "Stripe connection test completed:",
+          stripeConnectionStatus
+        );
+      } catch (error) {
+        stripeConnectionStatus = "failed";
+        console.error("Stripe connection test failed:", error.message);
+        // Don't let this crash the whole health endpoint
+      }
+    }
+
+    const statusData = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+      services: {
+        openai: {
+          status: apiKeyStatus,
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          demoMode: demoMode,
+        },
+        stripe: {
+          status: stripeConnectionStatus,
+          demoMode: stripeDemoMode,
+          configuration: {
+            secretKey: stripeSecretStatus,
+            publishableKey: stripePublishableStatus,
+            webhookSecret: stripeWebhookStatus,
+            monthlyPriceId: stripeMonthlyPriceStatus,
+            annualPriceId: stripeAnnualPriceStatus,
+            lifetimePriceId: stripeLifetimePriceStatus,
+          },
+        },
+      },
+      server: {
+        port: PORT,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      },
+    };
+
+    // Set appropriate status code based on service health
+    const hasErrors =
+      apiKeyStatus === "missing" ||
+      stripeConnectionStatus === "failed" ||
+      stripeSecretStatus === "missing";
+
+    res.status(hasErrors ? 503 : 200).json(statusData);
+  } catch (error) {
+    console.error("Status check error:", error);
+    res.status(500).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      error: "Status check failed",
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });
@@ -920,7 +1019,7 @@ app.listen(PORT, "0.0.0.0", () => {
   } else {
     console.log(
       "OpenAI integration active with model:",
-      process.env.OPENAI_MODEL || "gpt-4o"
+      process.env.OPENAI_MODEL || "gpt-4o-mini"
     );
   }
 });
