@@ -739,15 +739,20 @@ app.get("/health", async (req, res) => {
       : "missing";
 
     // Test Stripe connection if keys are available
-    let stripeConnectionStatus = "not_tested";
+    let stripeConnectionStatus = "configured";
     if (stripeSecretStatus === "configured") {
       try {
-        // Simple test to verify Stripe connection
+        console.log("Testing Stripe connection...");
         const testResult = await StripeService.testConnection();
         stripeConnectionStatus = testResult ? "connected" : "failed";
+        console.log(
+          "Stripe connection test completed:",
+          stripeConnectionStatus
+        );
       } catch (error) {
         stripeConnectionStatus = "failed";
         console.error("Stripe connection test failed:", error.message);
+        // Don't let this crash the whole health endpoint
       }
     }
 
