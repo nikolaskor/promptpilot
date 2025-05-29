@@ -93,16 +93,50 @@ try {
 app.use(express.json());
 app.use(
   cors({
-    origin: "*", // In production, restrict this to your extension ID
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or Postman)
+      if (!origin) return callback(null, true);
+
+      // Allow Chrome extension origins
+      if (origin.startsWith("chrome-extension://")) {
+        return callback(null, true);
+      }
+
+      // Allow specific domains in production
+      const allowedOrigins = [
+        "https://promptpilot-production-up.railway.app",
+        "https://promptpilot-production.up.railway.app",
+        "http://localhost:3000",
+        "http://localhost:4001",
+        "https://railway.app",
+        "https://railway.com",
+      ];
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // For development, allow all origins
+      if (process.env.NODE_ENV === "development") {
+        return callback(null, true);
+      }
+
+      // Allow all origins for now (can be restricted later)
+      return callback(null, true);
+    },
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "stripe-signature"],
+    credentials: false,
   })
 );
 
 // Add this after the CORS middleware (around line 50)
 app.use((req, res, next) => {
+  const origin = req.headers.origin;
   console.log(
-    `${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip}`
+    `${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${
+      req.ip
+    } - Origin: ${origin || "no-origin"}`
   );
   next();
 });
