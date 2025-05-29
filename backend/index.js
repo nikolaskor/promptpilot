@@ -46,7 +46,7 @@ process.on("exit", (code) => {
 console.log("Error handlers set up successfully ✅");
 
 // Load environment variables
-dotenv.config({ path: "../.env" });
+dotenv.config();
 
 // Initialize Express app
 const app = express();
