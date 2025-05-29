@@ -7,7 +7,7 @@ import { AnalyticsStorage } from "./utils/storage";
 import { PromptImprovement } from "./types/analytics";
 
 // Backend URL for the improve endpoint
-const BACKEND_URL = "http://localhost:4001";
+const BACKEND_URL = "https://promptpilot-production-up.railway.app";
 
 // Track whether the background script is initialized
 let bgIsInitialized = false;
@@ -475,7 +475,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       try {
         // Create portal session via backend
         const response = await fetch(
-          "http://localhost:4001/stripe/create-portal",
+          "https://promptpilot-production-up.railway.app/stripe/create-portal",
           {
             method: "POST",
             headers: {
