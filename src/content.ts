@@ -738,32 +738,47 @@ function triggerInputEvents(element: HTMLElement | null) {
             | HTMLTextAreaElement;
 
           // Get the appropriate descriptor based on element type
-          let descriptor;
-          if (element.tagName === "TEXTAREA") {
-            descriptor = Object.getOwnPropertyDescriptor(
-              HTMLTextAreaElement.prototype,
-              "value"
+          let descriptor = null;
+
+          try {
+            if (element.tagName === "TEXTAREA") {
+              descriptor = Object.getOwnPropertyDescriptor(
+                HTMLTextAreaElement.prototype,
+                "value"
+              );
+            } else {
+              descriptor = Object.getOwnPropertyDescriptor(
+                HTMLInputElement.prototype,
+                "value"
+              );
+            }
+
+            // If no descriptor found, try getting it from the element itself
+            if (!descriptor) {
+              descriptor = Object.getOwnPropertyDescriptor(element, "value");
+            }
+          } catch (descriptorGetError) {
+            console.warn(
+              "Error getting property descriptor:",
+              descriptorGetError
             );
-          } else {
-            descriptor = Object.getOwnPropertyDescriptor(
-              HTMLInputElement.prototype,
-              "value"
-            );
+            descriptor = null;
           }
 
-          // If no descriptor found, try getting it from the element itself
-          if (!descriptor) {
-            descriptor = Object.getOwnPropertyDescriptor(element, "value");
-          }
-
+          // Only proceed if we have a valid descriptor with a setter
           if (
             descriptor &&
+            typeof descriptor === "object" &&
             descriptor.set &&
             typeof descriptor.set === "function"
           ) {
-            // Use the current value of the element
-            const currentValue = inputElement.value;
-            descriptor.set.call(element, currentValue);
+            try {
+              // Use the current value of the element
+              const currentValue = inputElement.value;
+              descriptor.set.call(element, currentValue);
+            } catch (setError) {
+              console.warn("Error calling descriptor setter:", setError);
+            }
           }
         }
       } catch (descriptorError) {
