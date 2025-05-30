@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "NODE_ENV=production tsc && NODE_ENV=production vite build",
     "backend": "node backend/index.js",
-    "start": "cd backend && npm install && node index.js",
+    "start": "node backend/index.js",
     "start:dev": "concurrently \"npm run dev\" \"npm run backend\"",
     "postinstall": "cd backend && npm install"
   },
