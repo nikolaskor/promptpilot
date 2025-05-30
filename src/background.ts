@@ -39,7 +39,7 @@ function bgInitialize() {
  */
 async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${BACKEND_URL}/status`, {
+    const response = await fetch(`${BACKEND_URL}/api/check`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

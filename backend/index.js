@@ -880,6 +880,35 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Custom endpoint for extension health check (avoiding Railway interception)
+app.get("/api/check", async (req, res) => {
+  try {
+    // Simple status check that returns basic info
+    const statusData = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "production",
+      services: {
+        openai: {
+          status: process.env.OPENAI_API_KEY ? "configured" : "missing",
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          demoMode: demoMode,
+        },
+      },
+    };
+
+    res.status(200).json(statusData);
+  } catch (error) {
+    console.error("API check error:", error);
+    res.status(500).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      error: "API check failed",
+    });
+  }
+});
+
 // Custom status endpoint for extension (won't be intercepted by Railway)
 app.get("/status", async (req, res) => {
   try {
