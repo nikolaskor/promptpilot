@@ -7,7 +7,7 @@ import { AnalyticsStorage } from "./utils/storage";
 import { PromptImprovement } from "./types/analytics";
 
 // Backend URL for the improve endpoint
-const BACKEND_URL = "https://promptpilot-production-up.railway.app";
+const BACKEND_URL = "https://promptpilot-production.up.railway.app";
 
 // Track whether the background script is initialized
 let bgIsInitialized = false;
