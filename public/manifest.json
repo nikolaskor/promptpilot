@@ -41,6 +41,7 @@
   "permissions": ["activeTab", "scripting", "storage", "tabs", "identity"],
   "host_permissions": [
     "http://localhost:4001/*",
+    "https://promptpilot-production-up.railway.app/*",
     "https://api.stripe.com/*",
     "https://checkout.stripe.com/*",
     "https://www.googleapis.com/*"
