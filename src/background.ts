@@ -559,15 +559,33 @@ async function improvePrompt(text: string): Promise<string> {
   );
 
   try {
-    // First, check if backend is healthy
-    console.log("improvePrompt: Checking backend health");
-    const isHealthy = await checkBackendHealth();
-    console.log("improvePrompt: Backend health check result:", isHealthy);
+    console.log("improvePrompt: Attempting to call backend API directly");
 
-    if (!isHealthy) {
-      console.log("improvePrompt: Backend not healthy, using demo mode");
-      // Fallback to demo mode
-      const demoImprovedText = `${text}\n\n[DEMO MODE] This is a simulated improved prompt. In production, this would be an AI-enhanced version of your text.`;
+    // Try to call the main improve endpoint directly (skip health check)
+    const response = await fetch(`${BACKEND_URL}/improve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt: text }),
+    });
+
+    console.log(
+      "improvePrompt: Received response from backend:",
+      response.status,
+      response.statusText
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage =
+        errorData.error ||
+        `Server returned ${response.status}: ${response.statusText}`;
+      console.error("improvePrompt: Backend returned error:", errorMessage);
+
+      // If backend fails, fall back to demo mode
+      console.log("improvePrompt: Backend failed, using demo mode");
+      const demoImprovedText = `${text}\n\n[DEMO MODE] Backend unavailable. This is a simulated improved prompt. In production, this would be an AI-enhanced version of your text.`;
 
       // Store the improved text in session storage
       try {
@@ -585,68 +603,53 @@ async function improvePrompt(text: string): Promise<string> {
       return demoImprovedText;
     }
 
-    console.log("improvePrompt: Sending text to backend for improvement");
+    const data = await response.json().catch(() => {
+      throw new Error("Failed to parse backend response as JSON");
+    });
 
-    // Send text to backend for improvement
-    try {
-      const response = await fetch(`${BACKEND_URL}/improve`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt: text }),
-      });
+    console.log(
+      "improvePrompt: Successfully parsed JSON response from backend"
+    );
 
-      console.log(
-        "improvePrompt: Received response from backend:",
-        response.status,
-        response.statusText
+    if (!data.improvedPrompt) {
+      console.error(
+        "improvePrompt: Backend response missing improvedPrompt field:",
+        data
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          errorData.error ||
-          `Server returned ${response.status}: ${response.statusText}`;
-        console.error("improvePrompt: Backend returned error:", errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json().catch(() => {
-        throw new Error("Failed to parse backend response as JSON");
-      });
-
-      console.log(
-        "improvePrompt: Successfully parsed JSON response from backend"
-      );
-
-      if (!data.improvedPrompt) {
-        console.error(
-          "improvePrompt: Backend response missing improvedPrompt field:",
-          data
-        );
-        throw new Error("Backend response missing improvedPrompt field");
-      }
-
-      // Store the improved text in session storage
-      try {
-        chrome.storage.session.set({ lastImprovedText: data.improvedPrompt });
-        console.log("improvePrompt: Saved improved text to session storage");
-      } catch (err) {
-        console.error(
-          "improvePrompt: Error saving improved text to session storage:",
-          err
-        );
-      }
-
-      return data.improvedPrompt;
-    } catch (error) {
-      console.error("improvePrompt: Error in fetch operation:", error);
-      throw error;
+      throw new Error("Backend response missing improvedPrompt field");
     }
+
+    // Store the improved text in session storage
+    try {
+      chrome.storage.session.set({ lastImprovedText: data.improvedPrompt });
+      console.log("improvePrompt: Saved improved text to session storage");
+    } catch (err) {
+      console.error(
+        "improvePrompt: Error saving improved text to session storage:",
+        err
+      );
+    }
+
+    return data.improvedPrompt;
   } catch (error: any) {
     console.error("improvePrompt: Error in improvePrompt:", error);
-    throw new Error(`Failed to improve prompt: ${error.message}`);
+
+    // On any error, fall back to demo mode instead of throwing
+    console.log("improvePrompt: Error occurred, falling back to demo mode");
+    const demoImprovedText = `${text}\n\n[DEMO MODE] Connection failed. This is a simulated improved prompt. Error: ${error.message}`;
+
+    // Store the improved text in session storage
+    try {
+      chrome.storage.session.set({ lastImprovedText: demoImprovedText });
+      console.log("improvePrompt: Saved demo fallback text to session storage");
+    } catch (err) {
+      console.error(
+        "improvePrompt: Error saving demo text to session storage:",
+        err
+      );
+    }
+
+    return demoImprovedText;
   }
 }
 
