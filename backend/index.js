@@ -246,7 +246,7 @@ async function improvePromptWithAI(prompt) {
         { role: "user", content: template.user },
       ],
       temperature: parseFloat(process.env.TEMPERATURE || "0.7"),
-      max_tokens: parseInt(process.env.MAX_TOKENS || "1000"),
+      max_completion_tokens: parseInt(process.env.MAX_TOKENS || "1000"),
     });
 
     // Extract the improved prompt from the response
