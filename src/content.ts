@@ -11,6 +11,13 @@ let selectedIntent = "";
 let isDropdownOpen = false;
 let isWidgetExpanded = false;
 
+// Enhanced loading state tracking
+let loadingStartTime = 0;
+let currentLoadingStage = 1;
+let loadingMessageInterval: number | null = null;
+let loadingStageInterval: number | null = null;
+let enhancedTimeoutId: number | null = null;
+
 // Drag functionality state
 let isDragging = false;
 let dragStartX = 0;
@@ -117,6 +124,70 @@ const PLATFORM_CONFIGS = {
     waitForLoad: 500,
   },
 } as const;
+
+// Enhanced loading configurations
+const LOADING_STAGES = {
+  1: {
+    duration: 3000, // 3 seconds
+    messages: [
+      "Analyzing your prompt...",
+      "Understanding context...",
+      "Preparing enhancement...",
+    ],
+    className: "stage-1",
+    icon: "🔍",
+  },
+  2: {
+    duration: 8000, // 8 seconds
+    messages: [
+      "AI is thinking...",
+      "Crafting improvements...",
+      "Refining suggestions...",
+      "Optimizing clarity...",
+    ],
+    className: "stage-2",
+    icon: "🤖",
+  },
+  3: {
+    duration: 15000, // 15+ seconds
+    messages: [
+      "Finalizing enhancements...",
+      "Adding finishing touches...",
+      "Almost ready...",
+      "Polishing results...",
+    ],
+    className: "stage-3",
+    icon: "✨",
+  },
+};
+
+const CONTEXTUAL_MESSAGES = {
+  Academic: [
+    "Enhancing academic tone...",
+    "Improving scholarly structure...",
+    "Refining research clarity...",
+  ],
+  Professional: [
+    "Polishing professional language...",
+    "Enhancing business clarity...",
+    "Optimizing formal tone...",
+  ],
+  Creative: [
+    "Boosting creative expression...",
+    "Enhancing narrative flow...",
+    "Amplifying creative voice...",
+  ],
+  Technical: [
+    "Clarifying technical details...",
+    "Improving precision...",
+    "Enhancing technical accuracy...",
+  ],
+  Personal: [
+    "Personalizing your message...",
+    "Improving conversational tone...",
+    "Enhancing personal expression...",
+  ],
+};
 
 // Initialize the content script
 function initialize() {
@@ -1018,25 +1089,8 @@ function handleImproveClick() {
           console.log("Background script is processing the request");
           // Keep loading state - the background script will send IMPROVED_TEXT_FOR_REPLACEMENT when done
 
-          // Set a timeout in case the background script doesn't respond
-          setTimeout(() => {
-            if (isImprovementInProgress) {
-              console.warn("Improvement timeout - resetting state");
-              showNotification({
-                message: "Request timed out. Please try again.",
-                type: "warning",
-                icon: "⏰",
-                duration: 6000,
-                dismissible: true,
-                actionText: "Try Again",
-                actionCallback: () => {
-                  handleImproveClick();
-                },
-              });
-              resetButtonState();
-              isImprovementInProgress = false;
-            }
-          }, 30000); // 30 second timeout
+          // Setup enhanced timeout with user control
+          setupEnhancedTimeout();
         } else if (response && response.status === "limit_reached") {
           console.log("Usage limit reached");
           resetButtonState();
@@ -1233,14 +1287,204 @@ function handleTextSelection(event: MouseEvent) {
 }
 
 /**
- * Show loading state on the improve button
+ * Show enhanced loading state with multi-stage feedback and contextual messaging
  */
 function showLoadingState() {
   const improveButton = document.getElementById("promptpilot-improve-button");
-  if (improveButton) {
-    improveButton.className = "promptpilot-improve-button loading";
-    improveButton.innerHTML = '<span class="promptpilot-loader"></span>';
-    improveButton.title = "Improving text...";
+  if (!improveButton) return;
+
+  // Record start time
+  loadingStartTime = Date.now();
+  currentLoadingStage = 1;
+
+  // Clear any existing intervals
+  clearLoadingIntervals();
+
+  // Start with Stage 1
+  updateLoadingStage(1);
+
+  // Setup stage progression
+  setupStageProgression();
+
+  // Setup contextual messaging
+  setupContextualMessaging();
+
+  // Add accessibility attributes
+  improveButton.setAttribute("aria-busy", "true");
+  improveButton.setAttribute("aria-live", "polite");
+  improveButton.setAttribute("aria-describedby", "promptpilot-loading-status");
+
+  // Create screen reader status element
+  createScreenReaderStatus();
+}
+
+/**
+ * Update loading stage with visual and contextual feedback
+ */
+function updateLoadingStage(stage: number) {
+  const improveButton = document.getElementById("promptpilot-improve-button");
+  if (!improveButton) return;
+
+  const stageConfig = LOADING_STAGES[stage as keyof typeof LOADING_STAGES];
+  if (!stageConfig) return;
+
+  currentLoadingStage = stage;
+
+  // Update button appearance
+  improveButton.className = `promptpilot-improve-button loading ${stageConfig.className}`;
+  improveButton.innerHTML = `<span class="promptpilot-loader-${stage}">${stageConfig.icon}</span>`;
+
+  // Update initial tooltip
+  improveButton.title = stageConfig.messages[0];
+
+  console.log(`Loading stage ${stage}: ${stageConfig.messages[0]}`);
+}
+
+/**
+ * Setup stage progression timeline
+ */
+function setupStageProgression() {
+  // Progress to Stage 2 after 3 seconds
+  loadingStageInterval = window.setTimeout(() => {
+    if (isImprovementInProgress) {
+      updateLoadingStage(2);
+
+      // Progress to Stage 3 after 8 more seconds (11 total)
+      loadingStageInterval = window.setTimeout(() => {
+        if (isImprovementInProgress) {
+          updateLoadingStage(3);
+        }
+      }, 8000);
+    }
+  }, 3000);
+}
+
+/**
+ * Setup contextual messaging that rotates through stage-appropriate messages
+ */
+function setupContextualMessaging() {
+  let messageIndex = 0;
+
+  const updateMessage = () => {
+    if (!isImprovementInProgress) return;
+
+    const improveButton = document.getElementById("promptpilot-improve-button");
+    if (!improveButton) return;
+
+    const stageConfig =
+      LOADING_STAGES[currentLoadingStage as keyof typeof LOADING_STAGES];
+    if (!stageConfig) return;
+
+    // Get contextual messages based on selected intent
+    let messages = stageConfig.messages;
+    if (
+      selectedIntent &&
+      CONTEXTUAL_MESSAGES[selectedIntent as keyof typeof CONTEXTUAL_MESSAGES]
+    ) {
+      messages =
+        CONTEXTUAL_MESSAGES[selectedIntent as keyof typeof CONTEXTUAL_MESSAGES];
+    }
+
+    // Update tooltip with current message
+    const currentMessage = messages[messageIndex % messages.length];
+    improveButton.title = currentMessage;
+
+    // Update screen reader status
+    updateScreenReaderStatus(currentMessage);
+
+    // Show subtle notification for important stage transitions
+    if (messageIndex === 0 && currentLoadingStage > 1) {
+      showStageTransitionNotification(currentLoadingStage, currentMessage);
+    }
+
+    messageIndex++;
+  };
+
+  // Update message every 2.5 seconds
+  loadingMessageInterval = window.setInterval(updateMessage, 2500);
+
+  // Initial message update
+  updateMessage();
+}
+
+/**
+ * Show subtle notification for stage transitions
+ */
+function showStageTransitionNotification(stage: number, message: string) {
+  const stageConfig = LOADING_STAGES[stage as keyof typeof LOADING_STAGES];
+  if (!stageConfig) return;
+
+  // Only show notification for stages 2 and 3, and only once per improvement
+  if (stage === 2) {
+    showNotification({
+      message: `${stageConfig.icon} ${message}`,
+      type: "info",
+      duration: 2000,
+      dismissible: false,
+    });
+  } else if (stage === 3) {
+    showNotification({
+      message: `${stageConfig.icon} Taking longer than usual - ${message}`,
+      type: "warning",
+      duration: 3000,
+      dismissible: true,
+    });
+  }
+}
+
+/**
+ * Create screen reader status element
+ */
+function createScreenReaderStatus() {
+  // Remove existing status element
+  const existing = document.getElementById("promptpilot-loading-status");
+  if (existing) {
+    existing.remove();
+  }
+
+  const statusElement = document.createElement("div");
+  statusElement.id = "promptpilot-loading-status";
+  statusElement.className = "sr-only";
+  statusElement.style.cssText = `
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  `;
+  statusElement.textContent = "Improving your prompt, please wait...";
+  document.body.appendChild(statusElement);
+}
+
+/**
+ * Update screen reader status
+ */
+function updateScreenReaderStatus(message: string) {
+  const statusElement = document.getElementById("promptpilot-loading-status");
+  if (statusElement) {
+    statusElement.textContent = message;
+  }
+}
+
+/**
+ * Clear all loading intervals
+ */
+function clearLoadingIntervals() {
+  if (loadingMessageInterval) {
+    clearInterval(loadingMessageInterval);
+    loadingMessageInterval = null;
+  }
+  if (loadingStageInterval) {
+    clearTimeout(loadingStageInterval);
+    loadingStageInterval = null;
+  }
+  if (enhancedTimeoutId) {
+    clearTimeout(enhancedTimeoutId);
+    enhancedTimeoutId = null;
   }
 }
 
@@ -1254,6 +1498,24 @@ function resetButtonState() {
     improveButton.innerHTML =
       '<span class="promptpilot-improve-icon">⚡</span>';
     improveButton.title = "Improve selected text";
+
+    // Reset accessibility attributes
+    improveButton.removeAttribute("aria-busy");
+    improveButton.removeAttribute("aria-live");
+    improveButton.removeAttribute("aria-describedby");
+  }
+
+  // Clear all loading intervals and timers
+  clearLoadingIntervals();
+
+  // Reset loading state variables
+  currentLoadingStage = 1;
+  loadingStartTime = 0;
+
+  // Remove screen reader status element
+  const statusElement = document.getElementById("promptpilot-loading-status");
+  if (statusElement) {
+    statusElement.remove();
   }
 }
 
@@ -1302,6 +1564,8 @@ interface NotificationOptions {
   icon?: string; // Icon to display
   actionText?: string; // Action button text
   actionCallback?: () => void; // Action button callback
+  secondaryActionText?: string; // Secondary action button text
+  secondaryActionCallback?: () => void; // Secondary action button callback
 }
 
 /**
@@ -1376,6 +1640,20 @@ function createNotificationElement(options: NotificationOptions): HTMLElement {
       removeNotificationFromQueue(notification);
     };
     notification.appendChild(actionButton);
+  }
+
+  // Add secondary action button if specified
+  if (options.secondaryActionText && options.secondaryActionCallback) {
+    const secondaryActionButton = document.createElement("button");
+    secondaryActionButton.className =
+      "promptpilot-notification-action secondary";
+    secondaryActionButton.textContent = options.secondaryActionText;
+    secondaryActionButton.onclick = (e) => {
+      e.stopPropagation();
+      options.secondaryActionCallback!();
+      removeNotificationFromQueue(notification);
+    };
+    notification.appendChild(secondaryActionButton);
   }
 
   // Add close button if dismissible
@@ -1788,6 +2066,21 @@ function injectStyles() {
       animation: promptpilot-pulse 1.5s ease-in-out infinite;
     }
     
+    .promptpilot-improve-button.loading.stage-1 {
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      animation: promptpilot-gentle-pulse 2s ease-in-out infinite;
+    }
+    
+    .promptpilot-improve-button.loading.stage-2 {
+      background: linear-gradient(135deg, #9c27b0 0%, #673ab7 100%);
+      animation: promptpilot-thinking 1.5s ease-in-out infinite;
+    }
+    
+    .promptpilot-improve-button.loading.stage-3 {
+      background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+      animation: promptpilot-processing 1s linear infinite;
+    }
+    
     .promptpilot-improve-button.success {
       background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
       animation: promptpilot-success-bounce 0.6s ease;
@@ -1806,6 +2099,25 @@ function injectStyles() {
       border-radius: 50%;
       border-top-color: white;
       animation: promptpilot-spin 1s linear infinite;
+    }
+    
+    /* Enhanced Loading Animations for Different Stages */
+    .promptpilot-loader-1 {
+      display: inline-block;
+      font-size: 16px;
+      animation: promptpilot-pulse-glow 1.5s ease-in-out infinite;
+    }
+    
+    .promptpilot-loader-2 {
+      display: inline-block;
+      font-size: 16px;
+      animation: promptpilot-thinking-bounce 1.4s ease-in-out infinite;
+    }
+    
+    .promptpilot-loader-3 {
+      display: inline-block;
+      font-size: 16px;
+      animation: promptpilot-final-glow 1s ease-in-out infinite;
     }
     
     /* Animations */
@@ -1827,6 +2139,39 @@ function injectStyles() {
     @keyframes promptpilot-fade-in {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Enhanced Loading Stage Animations */
+    @keyframes promptpilot-gentle-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.02); opacity: 0.9; }
+    }
+
+    @keyframes promptpilot-thinking {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.05) rotate(-1deg); }
+      75% { transform: scale(1.05) rotate(1deg); }
+    }
+
+    @keyframes promptpilot-processing {
+      0% { transform: scale(1) rotate(0deg); }
+      100% { transform: scale(1) rotate(360deg); }
+    }
+
+    @keyframes promptpilot-pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+
+    @keyframes promptpilot-thinking-bounce {
+      0%, 20%, 80%, 100% { transform: translateY(0) scale(1); }
+      40% { transform: translateY(-3px) scale(1.1); }
+      60% { transform: translateY(-1px) scale(1.05); }
+    }
+
+    @keyframes promptpilot-final-glow {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50% { opacity: 0.8; transform: scale(1.15) rotate(180deg); }
     }
     
     /* Enhanced Notification styles */
@@ -1890,6 +2235,17 @@ function injectStyles() {
     
     .promptpilot-notification-action:hover {
       background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    
+    .promptpilot-notification-action.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 8px;
+    }
+    
+    .promptpilot-notification-action.secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
       transform: translateY(-1px);
     }
     
@@ -2419,4 +2775,144 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initialize);
 } else {
   initialize();
+}
+
+/**
+ * Setup enhanced timeout system with progressive warnings and user control
+ */
+function setupEnhancedTimeout() {
+  // First warning at 15 seconds
+  enhancedTimeoutId = window.setTimeout(() => {
+    if (isImprovementInProgress) {
+      showTimeoutWarning(15);
+
+      // Second warning at 25 seconds
+      enhancedTimeoutId = window.setTimeout(() => {
+        if (isImprovementInProgress) {
+          showTimeoutWarning(25);
+
+          // Final timeout at 40 seconds with recovery options
+          enhancedTimeoutId = window.setTimeout(() => {
+            if (isImprovementInProgress) {
+              showTimeoutRecovery();
+            }
+          }, 15000); // 25 + 15 = 40 seconds total
+        }
+      }, 10000); // 15 + 10 = 25 seconds total
+    }
+  }, 15000); // 15 seconds
+}
+
+/**
+ * Show timeout warning with current elapsed time
+ */
+function showTimeoutWarning(elapsedSeconds: number) {
+  const currentStage =
+    LOADING_STAGES[currentLoadingStage as keyof typeof LOADING_STAGES];
+
+  showNotification({
+    message: `Still working... (${elapsedSeconds}s elapsed) ${
+      currentStage?.icon || "⏳"
+    }`,
+    type: "info",
+    duration: 3000,
+    dismissible: true,
+    actionText: "Keep Waiting",
+    actionCallback: () => {
+      // User chose to keep waiting, show encouragement
+      showNotification({
+        message: "Thanks for your patience! AI is working hard on your prompt.",
+        type: "info",
+        duration: 2000,
+        dismissible: false,
+      });
+    },
+  });
+}
+
+/**
+ * Show timeout recovery options with user control
+ */
+function showTimeoutRecovery() {
+  console.warn("Enhanced timeout reached - showing recovery options");
+
+  showNotification({
+    message:
+      "This is taking longer than usual. Would you like to keep waiting or try again?",
+    type: "warning",
+    icon: "⏱️",
+    duration: 0, // Persistent until user acts
+    dismissible: false, // Force user to choose
+    actionText: "Keep Waiting",
+    actionCallback: () => {
+      extendTimeout();
+    },
+    secondaryActionText: "Try Again",
+    secondaryActionCallback: () => {
+      cancelCurrentImprovement();
+      setTimeout(() => handleImproveClick(), 1000);
+    },
+  });
+}
+
+/**
+ * Extend timeout for users who want to keep waiting
+ */
+function extendTimeout() {
+  showNotification({
+    message: "Extending wait time... We'll check again in 30 seconds.",
+    type: "info",
+    duration: 3000,
+    dismissible: false,
+  });
+
+  // Setup another 30-second timeout
+  enhancedTimeoutId = window.setTimeout(() => {
+    if (isImprovementInProgress) {
+      showFinalTimeoutRecovery();
+    }
+  }, 30000);
+}
+
+/**
+ * Show final timeout recovery after extension
+ */
+function showFinalTimeoutRecovery() {
+  showNotification({
+    message:
+      "Request is taking unusually long. This might indicate a server issue.",
+    type: "error",
+    icon: "🚫",
+    duration: 0,
+    dismissible: false,
+    actionText: "Cancel & Retry",
+    actionCallback: () => {
+      cancelCurrentImprovement();
+      setTimeout(() => handleImproveClick(), 1000);
+    },
+    secondaryActionText: "Report Issue",
+    secondaryActionCallback: () => {
+      cancelCurrentImprovement();
+      chrome.runtime.sendMessage({
+        type: "REPORT_TIMEOUT_ISSUE",
+        duration: Date.now() - loadingStartTime,
+      });
+    },
+  });
+}
+
+/**
+ * Cancel current improvement and reset state
+ */
+function cancelCurrentImprovement() {
+  console.log("Canceling current improvement process");
+
+  // Reset state
+  resetButtonState();
+  isImprovementInProgress = false;
+
+  // Notify background script to cancel if possible
+  chrome.runtime.sendMessage({ type: "CANCEL_IMPROVEMENT" }, () => {
+    // Ignore response - this is best effort
+  });
 }
