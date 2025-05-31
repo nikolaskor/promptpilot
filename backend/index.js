@@ -240,12 +240,12 @@ async function improvePromptWithAI(prompt) {
 
     // Call OpenAI API
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      model: process.env.OPENAI_MODEL || "gpt-4o",
       messages: [
         { role: "system", content: template.system },
         { role: "user", content: template.user },
       ],
-      temperature: parseFloat(process.env.TEMPERATURE || "0.7"),
+      // temperature: parseFloat(process.env.TEMPERATURE || "0.7"), // Commented out for o4-mini compatibility
       max_completion_tokens: parseInt(process.env.MAX_TOKENS || "1000"),
     });
 
@@ -838,7 +838,7 @@ app.get("/health", async (req, res) => {
       services: {
         openai: {
           status: apiKeyStatus,
-          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          model: process.env.OPENAI_MODEL || "gpt-4o",
           demoMode: demoMode,
         },
         stripe: {
@@ -892,7 +892,7 @@ app.get("/api/check", async (req, res) => {
       services: {
         openai: {
           status: process.env.OPENAI_API_KEY ? "configured" : "missing",
-          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          model: process.env.OPENAI_MODEL || "gpt-4o",
           demoMode: demoMode,
         },
       },
@@ -961,7 +961,7 @@ app.get("/status", async (req, res) => {
       services: {
         openai: {
           status: apiKeyStatus,
-          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          model: process.env.OPENAI_MODEL || "gpt-4o",
           demoMode: demoMode,
         },
         stripe: {
@@ -1048,7 +1048,7 @@ app.listen(PORT, "0.0.0.0", () => {
   } else {
     console.log(
       "OpenAI integration active with model:",
-      process.env.OPENAI_MODEL || "gpt-4o-mini"
+      process.env.OPENAI_MODEL || "gpt-4o"
     );
   }
 });
