@@ -906,7 +906,12 @@ function createFixedButton() {
   // Create intent selector icon
   const intentButton = document.createElement("button");
   intentButton.className = "promptpilot-intent-button";
-  intentButton.innerHTML = '<span class="promptpilot-intent-icon">🎯</span>';
+  intentButton.innerHTML = `
+    <div class="promptpilot-intent-default">
+      <span class="promptpilot-intent-icon">🎯</span>
+      <span class="promptpilot-intent-label">Pick</span>
+    </div>
+  `;
   intentButton.title = "Select intent category";
   intentButton.addEventListener("click", handleIntentButtonClick);
 
@@ -2245,6 +2250,38 @@ function injectStyles() {
       transition: transform 0.3s ease;
     }
     
+    /* Intent selection display */
+    .promptpilot-intent-selected {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+    
+    .promptpilot-intent-emoji {
+      font-size: 14px;
+      line-height: 1;
+    }
+    
+    .promptpilot-intent-short {
+      font-size: 8px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      line-height: 1;
+      letter-spacing: 0.2px;
+    }
+    
+    .promptpilot-intent-button.intent-selected {
+      background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+      box-shadow: 0 3px 8px rgba(76, 175, 80, 0.4);
+    }
+    
+    .promptpilot-intent-button.intent-selected:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.5);
+    }
+    
     .promptpilot-intent-indicator {
       position: absolute;
       top: -2px;
@@ -2724,6 +2761,23 @@ function injectStyles() {
         transform: translateY(-1px);
       }
     }
+
+    /* Default intent button display */
+    .promptpilot-intent-default {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+    
+    .promptpilot-intent-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      line-height: 1;
+      letter-spacing: 0.2px;
+    }
   `;
 
   document.head.appendChild(style);
@@ -2936,12 +2990,36 @@ function handleIntentSelect(intent: string) {
 
   if (intentButton) {
     intentButton.classList.remove("active");
-    // Update button to show selected intent with a small indicator
-    intentButton.innerHTML = `<span class="promptpilot-intent-icon">🎯</span><span class="promptpilot-intent-indicator"></span>`;
-    intentButton.title = `Intent: ${intent}`;
+
+    // Show the selected intent clearly with emoji and abbreviated name
+    const intentEmoji = getIntentEmoji(intent);
+    const intentShort = getIntentShortName(intent);
+
+    intentButton.innerHTML = `
+      <div class="promptpilot-intent-selected">
+        <span class="promptpilot-intent-emoji">${intentEmoji}</span>
+        <span class="promptpilot-intent-short">${intentShort}</span>
+      </div>
+    `;
+    intentButton.title = `Selected intent: ${intent}`;
+    intentButton.classList.add("intent-selected");
   }
 
   console.log("Selected intent:", intent);
+}
+
+/**
+ * Get short name for intent display
+ */
+function getIntentShortName(intent: string): string {
+  const shortNames: { [key: string]: string } = {
+    Academic: "Acad",
+    Professional: "Pro",
+    Creative: "Art",
+    Technical: "Tech",
+    Personal: "Chat",
+  };
+  return shortNames[intent] || "Gen";
 }
 
 /**
