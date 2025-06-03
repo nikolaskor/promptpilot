@@ -1044,9 +1044,37 @@ function handleImproveClick() {
     text.substring(0, 50) + (text.length > 50 ? "..." : "")
   );
 
-  // Update UI to show progress
+  // Ensure widget stays expanded during improvement
+  if (!isWidgetExpanded) {
+    const expandedContent = document.getElementById("promptpilot-expanded");
+    const mainButton = document.getElementById("promptpilot-main-button");
+
+    if (expandedContent && mainButton) {
+      isWidgetExpanded = true;
+      expandedContent.classList.add("expanded");
+      mainButton.classList.add("expanded");
+    }
+  }
+
+  // Close intent dropdown if open
+  if (isDropdownOpen) {
+    const intentDropdown = document.querySelector(
+      ".promptpilot-intent-dropdown"
+    ) as HTMLElement;
+    const intentButton = document.querySelector(
+      ".promptpilot-intent-button"
+    ) as HTMLElement;
+
+    if (intentDropdown && intentButton) {
+      isDropdownOpen = false;
+      intentDropdown.classList.remove("open");
+      intentButton.classList.remove("active");
+    }
+  }
+
+  // Update UI to show progress with intent information
   isImprovementInProgress = true;
-  showLoadingState();
+  showLoadingStateWithIntent();
 
   // Save to session storage for popup
   chrome.storage.session.set({ lastCapturedText: text }, () => {
@@ -1287,10 +1315,14 @@ function handleTextSelection(event: MouseEvent) {
 }
 
 /**
- * Show enhanced loading state with multi-stage feedback and contextual messaging
+ * Show enhanced loading state with intent information and multi-stage feedback
  */
-function showLoadingState() {
+function showLoadingStateWithIntent() {
   const improveButton = document.getElementById("promptpilot-improve-button");
+  const intentButton = document.querySelector(
+    ".promptpilot-intent-button"
+  ) as HTMLElement;
+
   if (!improveButton) return;
 
   // Record start time
@@ -1300,13 +1332,16 @@ function showLoadingState() {
   // Clear any existing intervals
   clearLoadingIntervals();
 
+  // Create intent indicator to show selected intent during improvement
+  createIntentIndicator();
+
   // Start with Stage 1
-  updateLoadingStage(1);
+  updateLoadingStageWithIntent(1);
 
   // Setup stage progression
   setupStageProgression();
 
-  // Setup contextual messaging
+  // Setup contextual messaging with intent awareness
   setupContextualMessaging();
 
   // Add accessibility attributes
@@ -1314,14 +1349,72 @@ function showLoadingState() {
   improveButton.setAttribute("aria-live", "polite");
   improveButton.setAttribute("aria-describedby", "promptpilot-loading-status");
 
-  // Create screen reader status element
-  createScreenReaderStatus();
+  // Create screen reader status element with intent information
+  createScreenReaderStatusWithIntent();
+
+  // Prevent widget collapse during improvement
+  preventWidgetCollapseTemporarily();
 }
 
 /**
- * Update loading stage with visual and contextual feedback
+ * Create a prominent intent indicator during improvement
  */
-function updateLoadingStage(stage: number) {
+function createIntentIndicator() {
+  // Remove existing indicator if any
+  const existingIndicator = document.getElementById(
+    "promptpilot-intent-indicator"
+  );
+  if (existingIndicator) {
+    existingIndicator.remove();
+  }
+
+  const container = document.getElementById("promptpilot-container");
+  if (!container) return;
+
+  const intentIndicator = document.createElement("div");
+  intentIndicator.id = "promptpilot-intent-indicator";
+  intentIndicator.className = "promptpilot-intent-indicator";
+
+  const currentIntent = selectedIntent || "General";
+  const intentEmoji = getIntentEmoji(currentIntent);
+
+  intentIndicator.innerHTML = `
+    <div class="promptpilot-intent-badge">
+      <span class="promptpilot-intent-emoji">${intentEmoji}</span>
+      <span class="promptpilot-intent-label">${currentIntent}</span>
+    </div>
+  `;
+
+  intentIndicator.title = `Improving for ${currentIntent} purposes`;
+
+  // Insert after the expanded content
+  const expandedContent = document.getElementById("promptpilot-expanded");
+  if (expandedContent) {
+    container.insertBefore(intentIndicator, expandedContent.nextSibling);
+  } else {
+    container.appendChild(intentIndicator);
+  }
+}
+
+/**
+ * Get emoji for intent category
+ */
+function getIntentEmoji(intent: string): string {
+  const emojiMap: { [key: string]: string } = {
+    Academic: "🎓",
+    Professional: "💼",
+    Creative: "🎨",
+    Technical: "⚙️",
+    Personal: "💭",
+    General: "✨",
+  };
+  return emojiMap[intent] || "✨";
+}
+
+/**
+ * Update loading stage with intent-aware visual feedback
+ */
+function updateLoadingStageWithIntent(stage: number) {
   const improveButton = document.getElementById("promptpilot-improve-button");
   if (!improveButton) return;
 
@@ -1329,113 +1422,69 @@ function updateLoadingStage(stage: number) {
   if (!stageConfig) return;
 
   currentLoadingStage = stage;
+  const currentIntent = selectedIntent || "General";
 
-  // Update button appearance
-  improveButton.className = `promptpilot-improve-button loading ${stageConfig.className}`;
+  // Update button appearance with intent-aware styling
+  improveButton.className = `promptpilot-improve-button loading ${
+    stageConfig.className
+  } intent-${currentIntent.toLowerCase()}`;
   improveButton.innerHTML = `<span class="promptpilot-loader-${stage}">${stageConfig.icon}</span>`;
 
-  // Update initial tooltip
-  improveButton.title = stageConfig.messages[0];
+  // Create intent-aware tooltip message
+  const intentMessage = getIntentLoadingMessage(currentIntent, stage);
+  improveButton.title = intentMessage;
 
-  console.log(`Loading stage ${stage}: ${stageConfig.messages[0]}`);
+  console.log(`Loading stage ${stage} for ${currentIntent}: ${intentMessage}`);
 }
 
 /**
- * Setup stage progression timeline
+ * Get intent-specific loading message
  */
-function setupStageProgression() {
-  // Progress to Stage 2 after 3 seconds
-  loadingStageInterval = window.setTimeout(() => {
-    if (isImprovementInProgress) {
-      updateLoadingStage(2);
-
-      // Progress to Stage 3 after 8 more seconds (11 total)
-      loadingStageInterval = window.setTimeout(() => {
-        if (isImprovementInProgress) {
-          updateLoadingStage(3);
-        }
-      }, 8000);
-    }
-  }, 3000);
-}
-
-/**
- * Setup contextual messaging that rotates through stage-appropriate messages
- */
-function setupContextualMessaging() {
-  let messageIndex = 0;
-
-  const updateMessage = () => {
-    if (!isImprovementInProgress) return;
-
-    const improveButton = document.getElementById("promptpilot-improve-button");
-    if (!improveButton) return;
-
-    const stageConfig =
-      LOADING_STAGES[currentLoadingStage as keyof typeof LOADING_STAGES];
-    if (!stageConfig) return;
-
-    // Get contextual messages based on selected intent
-    let messages = stageConfig.messages;
-    if (
-      selectedIntent &&
-      CONTEXTUAL_MESSAGES[selectedIntent as keyof typeof CONTEXTUAL_MESSAGES]
-    ) {
-      messages =
-        CONTEXTUAL_MESSAGES[selectedIntent as keyof typeof CONTEXTUAL_MESSAGES];
-    }
-
-    // Update tooltip with current message
-    const currentMessage = messages[messageIndex % messages.length];
-    improveButton.title = currentMessage;
-
-    // Update screen reader status
-    updateScreenReaderStatus(currentMessage);
-
-    // Show subtle notification for important stage transitions
-    if (messageIndex === 0 && currentLoadingStage > 1) {
-      showStageTransitionNotification(currentLoadingStage, currentMessage);
-    }
-
-    messageIndex++;
+function getIntentLoadingMessage(intent: string, stage: number): string {
+  const messages = {
+    Academic: {
+      1: "Analyzing for academic rigor...",
+      2: "Enhancing scholarly structure...",
+      3: "Finalizing research-focused improvements...",
+    },
+    Professional: {
+      1: "Optimizing for business clarity...",
+      2: "Enhancing professional tone...",
+      3: "Finalizing actionable outcomes...",
+    },
+    Creative: {
+      1: "Boosting creative expression...",
+      2: "Enhancing artistic vision...",
+      3: "Finalizing imaginative improvements...",
+    },
+    Technical: {
+      1: "Analyzing technical precision...",
+      2: "Enhancing implementation details...",
+      3: "Finalizing technical accuracy...",
+    },
+    Personal: {
+      1: "Personalizing your message...",
+      2: "Enhancing conversational tone...",
+      3: "Finalizing relatable improvements...",
+    },
+    General: {
+      1: "Analyzing your prompt...",
+      2: "Crafting improvements...",
+      3: "Finalizing enhancements...",
+    },
   };
 
-  // Update message every 2.5 seconds
-  loadingMessageInterval = window.setInterval(updateMessage, 2500);
-
-  // Initial message update
-  updateMessage();
+  const intentMessages =
+    messages[intent as keyof typeof messages] || messages.General;
+  return (
+    intentMessages[stage as keyof typeof intentMessages] || "Processing..."
+  );
 }
 
 /**
- * Show subtle notification for stage transitions
+ * Create screen reader status element with intent information
  */
-function showStageTransitionNotification(stage: number, message: string) {
-  const stageConfig = LOADING_STAGES[stage as keyof typeof LOADING_STAGES];
-  if (!stageConfig) return;
-
-  // Only show notification for stages 2 and 3, and only once per improvement
-  if (stage === 2) {
-    showNotification({
-      message: `${stageConfig.icon} ${message}`,
-      type: "info",
-      duration: 2000,
-      dismissible: false,
-    });
-  } else if (stage === 3) {
-    showNotification({
-      message: `${stageConfig.icon} Taking longer than usual - ${message}`,
-      type: "warning",
-      duration: 3000,
-      dismissible: true,
-    });
-  }
-}
-
-/**
- * Create screen reader status element
- */
-function createScreenReaderStatus() {
+function createScreenReaderStatusWithIntent() {
   // Remove existing status element
   const existing = document.getElementById("promptpilot-loading-status");
   if (existing) {
@@ -1456,8 +1505,195 @@ function createScreenReaderStatus() {
     white-space: nowrap !important;
     border: 0 !important;
   `;
-  statusElement.textContent = "Improving your prompt, please wait...";
+
+  const currentIntent = selectedIntent || "General";
+  statusElement.textContent = `Improving your prompt for ${currentIntent} purposes, please wait...`;
   document.body.appendChild(statusElement);
+}
+
+/**
+ * Prevent widget collapse during improvement
+ */
+function preventWidgetCollapseTemporarily() {
+  const mainButton = document.getElementById("promptpilot-main-button");
+  if (mainButton) {
+    // Add a temporary class to indicate improvement in progress
+    mainButton.classList.add("improvement-in-progress");
+
+    // Store original click handler reference
+    const originalHandler = handleMainButtonClick;
+
+    // Temporarily replace click handler to prevent collapse
+    const tempHandler = (event: Event) => {
+      event.stopPropagation();
+      // Do nothing - prevent collapse during improvement
+      showNotification({
+        message: `Improvement in progress for ${
+          selectedIntent || "General"
+        } intent...`,
+        type: "info",
+        duration: 2000,
+        dismissible: false,
+      });
+    };
+
+    mainButton.removeEventListener("click", originalHandler);
+    mainButton.addEventListener("click", tempHandler);
+
+    // Store handler reference for restoration later
+    (mainButton as any)._tempHandler = tempHandler;
+    (mainButton as any)._originalHandler = originalHandler;
+  }
+}
+
+/**
+ * Restore normal widget behavior after improvement
+ */
+function restoreWidgetBehavior() {
+  const mainButton = document.getElementById("promptpilot-main-button");
+  if (mainButton) {
+    // Remove improvement-in-progress class
+    mainButton.classList.remove("improvement-in-progress");
+
+    // Restore original click handler
+    const tempHandler = (mainButton as any)._tempHandler;
+    const originalHandler = (mainButton as any)._originalHandler;
+
+    if (tempHandler && originalHandler) {
+      mainButton.removeEventListener("click", tempHandler);
+      mainButton.addEventListener("click", originalHandler);
+
+      // Clean up references
+      delete (mainButton as any)._tempHandler;
+      delete (mainButton as any)._originalHandler;
+    }
+  }
+
+  // Remove intent indicator
+  const intentIndicator = document.getElementById(
+    "promptpilot-intent-indicator"
+  );
+  if (intentIndicator) {
+    intentIndicator.remove();
+  }
+}
+
+/**
+ * Show enhanced loading state with multi-stage feedback and contextual messaging
+ */
+function showLoadingState() {
+  // Fallback to the new intent-aware version
+  showLoadingStateWithIntent();
+}
+
+/**
+ * Update loading stage with visual and contextual feedback (legacy fallback)
+ */
+function updateLoadingStage(stage: number) {
+  // Fallback to the new intent-aware version
+  updateLoadingStageWithIntent(stage);
+}
+
+/**
+ * Setup stage progression timeline
+ */
+function setupStageProgression() {
+  // Progress to Stage 2 after 3 seconds
+  loadingStageInterval = window.setTimeout(() => {
+    if (isImprovementInProgress) {
+      updateLoadingStageWithIntent(2);
+
+      // Progress to Stage 3 after 8 more seconds (11 total)
+      loadingStageInterval = window.setTimeout(() => {
+        if (isImprovementInProgress) {
+          updateLoadingStageWithIntent(3);
+        }
+      }, 8000);
+    }
+  }, 3000);
+}
+
+/**
+ * Setup contextual messaging that rotates through stage-appropriate messages
+ */
+function setupContextualMessaging() {
+  let messageIndex = 0;
+
+  const updateMessage = () => {
+    if (!isImprovementInProgress) return;
+
+    const improveButton = document.getElementById("promptpilot-improve-button");
+    if (!improveButton) return;
+
+    const currentIntent = selectedIntent || "General";
+
+    // Get intent-specific loading message for current stage
+    const intentMessage = getIntentLoadingMessage(
+      currentIntent,
+      currentLoadingStage
+    );
+
+    // Update tooltip with current intent-aware message
+    improveButton.title = intentMessage;
+
+    // Update screen reader status
+    updateScreenReaderStatus(intentMessage);
+
+    // Show subtle notification for important stage transitions
+    if (messageIndex === 0 && currentLoadingStage > 1) {
+      showStageTransitionNotificationWithIntent(
+        currentLoadingStage,
+        intentMessage
+      );
+    }
+
+    messageIndex++;
+  };
+
+  // Update message every 2.5 seconds
+  loadingMessageInterval = window.setInterval(updateMessage, 2500);
+
+  // Initial message update
+  updateMessage();
+}
+
+/**
+ * Show subtle notification for stage transitions with intent awareness
+ */
+function showStageTransitionNotificationWithIntent(
+  stage: number,
+  message: string
+) {
+  const stageConfig = LOADING_STAGES[stage as keyof typeof LOADING_STAGES];
+  const currentIntent = selectedIntent || "General";
+  const intentEmoji = getIntentEmoji(currentIntent);
+
+  if (!stageConfig) return;
+
+  // Only show notification for stages 2 and 3, and only once per improvement
+  if (stage === 2) {
+    showNotification({
+      message: `${intentEmoji} ${message}`,
+      type: "info",
+      duration: 2000,
+      dismissible: false,
+    });
+  } else if (stage === 3) {
+    showNotification({
+      message: `${intentEmoji} Taking longer than usual - ${message}`,
+      type: "warning",
+      duration: 3000,
+      dismissible: true,
+    });
+  }
+}
+
+/**
+ * Create screen reader status element
+ */
+function createScreenReaderStatus() {
+  // Fallback to the new intent-aware version
+  createScreenReaderStatusWithIntent();
 }
 
 /**
@@ -1508,11 +1744,10 @@ function resetButtonState() {
   // Clear all loading intervals and timers
   clearLoadingIntervals();
 
-  // Reset loading state variables
-  currentLoadingStage = 1;
-  loadingStartTime = 0;
+  // Remove intent indicator and restore widget behavior
+  restoreWidgetBehavior();
 
-  // Remove screen reader status element
+  // Remove loading status element
   const statusElement = document.getElementById("promptpilot-loading-status");
   if (statusElement) {
     statusElement.remove();
@@ -1520,33 +1755,73 @@ function resetButtonState() {
 }
 
 /**
- * Show success state on the improve button
+ * Show success state with intent confirmation
  */
 function showSuccessState() {
   const improveButton = document.getElementById("promptpilot-improve-button");
-  if (improveButton) {
-    improveButton.className = "promptpilot-improve-button success";
-    improveButton.innerHTML = '<span class="promptpilot-improve-icon">✓</span>';
-    improveButton.title = "Text improved successfully!";
+  if (!improveButton) return;
 
-    // Show success notification
-    showNotification({
-      message: "Text successfully improved!",
-      type: "success",
-      icon: "✅",
-      duration: 3000,
-      dismissible: false,
-    });
+  const currentIntent = selectedIntent || "General";
+  const intentEmoji = getIntentEmoji(currentIntent);
 
-    // Check usage limits and show proactive warnings
-    checkUsageLimitsAndWarn();
+  // Clear loading intervals
+  clearLoadingIntervals();
 
-    // Reset after delay
-    setTimeout(() => {
-      resetButtonState();
-      isImprovementInProgress = false;
-    }, 2000);
+  // Show success state
+  improveButton.className = "promptpilot-improve-button success";
+  improveButton.innerHTML = '<span class="promptpilot-success-icon">✅</span>';
+  improveButton.title = `Successfully improved for ${currentIntent}!`;
+
+  // Remove improvement-in-progress restrictions but keep intent indicator briefly
+  const mainButton = document.getElementById("promptpilot-main-button");
+  if (mainButton) {
+    mainButton.classList.remove("improvement-in-progress");
+
+    // Restore click handler
+    const tempHandler = (mainButton as any)._tempHandler;
+    const originalHandler = (mainButton as any)._originalHandler;
+
+    if (tempHandler && originalHandler) {
+      mainButton.removeEventListener("click", tempHandler);
+      mainButton.addEventListener("click", originalHandler);
+
+      delete (mainButton as any)._tempHandler;
+      delete (mainButton as any)._originalHandler;
+    }
   }
+
+  // Show success notification with intent confirmation
+  showNotification({
+    message: `${intentEmoji} Successfully improved for ${currentIntent} purposes!`,
+    type: "success",
+    icon: "🎉",
+    duration: 4000,
+    dismissible: true,
+    actionText: "View Result",
+    actionCallback: () => {
+      chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
+    },
+  });
+
+  // Reset to normal state after showing success briefly
+  setTimeout(() => {
+    if (improveButton) {
+      improveButton.className = "promptpilot-improve-button";
+      improveButton.innerHTML =
+        '<span class="promptpilot-improve-icon">⚡</span>';
+      improveButton.title = "Improve selected text";
+    }
+
+    // Remove intent indicator
+    const intentIndicator = document.getElementById(
+      "promptpilot-intent-indicator"
+    );
+    if (intentIndicator) {
+      intentIndicator.remove();
+    }
+
+    isImprovementInProgress = false;
+  }, 2000);
 }
 
 /**
@@ -2340,6 +2615,115 @@ function injectStyles() {
         font-size: 12px;
       }
     }
+
+    /* Intent indicator during improvement */
+    .promptpilot-intent-indicator {
+      position: absolute;
+      top: -45px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999999;
+      animation: intent-indicator-slide-in 0.3s ease-out;
+    }
+
+    .promptpilot-intent-badge {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .promptpilot-intent-emoji {
+      font-size: 16px;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    }
+
+    .promptpilot-intent-label {
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    @keyframes intent-indicator-slide-in {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    /* Intent-specific loading button styles */
+    .promptpilot-improve-button.intent-academic {
+      border-color: #3b82f6;
+      background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    }
+
+    .promptpilot-improve-button.intent-professional {
+      border-color: #059669;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+
+    .promptpilot-improve-button.intent-creative {
+      border-color: #dc2626;
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    }
+
+    .promptpilot-improve-button.intent-technical {
+      border-color: #7c2d12;
+      background: linear-gradient(135deg, #7c2d12 0%, #431407 100%);
+    }
+
+    .promptpilot-improve-button.intent-personal {
+      border-color: #7c3aed;
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+    }
+
+    .promptpilot-improve-button.intent-general {
+      border-color: #f59e0b;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    /* Improvement in progress indicator */
+    .promptpilot-main-button.improvement-in-progress {
+      border: 2px solid #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+      animation: improvement-pulse 2s infinite;
+    }
+
+    @keyframes improvement-pulse {
+      0%, 100% {
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+      }
+      50% {
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.05);
+      }
+    }
+
+    /* Enhanced success icon */
+    .promptpilot-success-icon {
+      animation: success-bounce 0.6s ease-out;
+    }
+
+    @keyframes success-bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-3px);
+      }
+      60% {
+        transform: translateY(-1px);
+      }
+    }
   `;
 
   document.head.appendChild(style);
@@ -2915,4 +3299,12 @@ function cancelCurrentImprovement() {
   chrome.runtime.sendMessage({ type: "CANCEL_IMPROVEMENT" }, () => {
     // Ignore response - this is best effort
   });
+}
+
+/**
+ * Show subtle notification for stage transitions (legacy fallback)
+ */
+function showStageTransitionNotification(stage: number, message: string) {
+  // Fallback to the new intent-aware version
+  showStageTransitionNotificationWithIntent(stage, message);
 }
