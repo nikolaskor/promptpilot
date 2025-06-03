@@ -18,6 +18,11 @@ let loadingMessageInterval: number | null = null;
 let loadingStageInterval: number | null = null;
 let enhancedTimeoutId: number | null = null;
 
+// Input field visual effects tracking
+let inputEffectStage = 1;
+let inputEffectInterval: number | null = null;
+let inputOriginalStyles: Map<string, string> = new Map();
+
 // Drag functionality state
 let isDragging = false;
 let dragStartX = 0;
@@ -404,6 +409,10 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
           handleImproveClick();
         },
       });
+
+      // Show error effects on input field
+      showInputFieldError();
+
       resetButtonState();
       isImprovementInProgress = false;
       sendResponse({ status: "error" });
@@ -413,8 +422,11 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
     // Insert the improved text
     insertImprovedText(improvedText);
 
-    // Show success UI
+    // Show success UI on button
     showSuccessState();
+
+    // Show success effects on input field
+    showInputFieldSuccess();
 
     // Store the improved text in session storage
     chrome.storage.session.set({ lastImprovedText: improvedText }, () => {
@@ -424,6 +436,10 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
     sendResponse({ status: "text_updated" });
   } catch (error) {
     console.error("Error handling improved text:", error);
+
+    // Show error effects on input field
+    showInputFieldError();
+
     showNotification({
       message:
         "Failed to insert improved text. You can copy it from the popup instead.",
@@ -447,6 +463,9 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
  */
 function handleError(error: string, sendResponse: Function) {
   console.error("Received improvement error:", error);
+
+  // Show error effects on input field
+  showInputFieldError();
 
   // Enhanced error notification with better messaging
   let errorMessage = error || "Error improving text";
@@ -1300,6 +1319,9 @@ function showLoadingState() {
   // Clear any existing intervals
   clearLoadingIntervals();
 
+  // Apply visual effects to the input field
+  applyInputFieldEffects();
+
   // Start with Stage 1
   updateLoadingStage(1);
 
@@ -1486,6 +1508,9 @@ function clearLoadingIntervals() {
     clearTimeout(enhancedTimeoutId);
     enhancedTimeoutId = null;
   }
+
+  // Also clear input effect intervals
+  clearInputEffectIntervals();
 }
 
 /**
@@ -1507,6 +1532,9 @@ function resetButtonState() {
 
   // Clear all loading intervals and timers
   clearLoadingIntervals();
+
+  // Remove visual effects from input field
+  removeInputFieldEffects();
 
   // Reset loading state variables
   currentLoadingStage = 1;
@@ -1541,7 +1569,7 @@ function showSuccessState() {
     // Check usage limits and show proactive warnings
     checkUsageLimitsAndWarn();
 
-    // Reset after delay
+    // Reset after delay - coordinated with input field effects
     setTimeout(() => {
       resetButtonState();
       isImprovementInProgress = false;
@@ -2340,6 +2368,191 @@ function injectStyles() {
         font-size: 12px;
       }
     }
+    
+    @keyframes promptpilot-fade-out {
+      from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+    }
+    
+    /* PromptPilot Input Field Visual Effects */
+    .promptpilot-input-processing {
+      position: relative !important;
+      overflow: hidden !important;
+    }
+    
+    .promptpilot-input-processing::before {
+      content: '';
+      position: absolute !important;
+      top: 0 !important;
+      left: -100% !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(66, 133, 244, 0.2) 20%,
+        rgba(66, 133, 244, 0.4) 50%,
+        rgba(66, 133, 244, 0.2) 80%,
+        transparent 100%
+      ) !important;
+      animation: promptpilot-input-shimmer 2s linear infinite !important;
+      z-index: 1 !important;
+      pointer-events: none !important;
+    }
+    
+    .promptpilot-input-stage-1 {
+      border: 2px solid #4285f4 !important;
+      box-shadow: 0 0 8px rgba(66, 133, 244, 0.3) !important;
+      animation: promptpilot-input-pulse-gentle 2s ease-in-out infinite !important;
+      background-color: rgba(66, 133, 244, 0.02) !important;
+    }
+    
+    .promptpilot-input-stage-2 {
+      border: 2px solid #9c27b0 !important;
+      box-shadow: 0 0 12px rgba(156, 39, 176, 0.4) !important;
+      animation: promptpilot-input-pulse-thinking 1.5s ease-in-out infinite !important;
+      background-color: rgba(156, 39, 176, 0.03) !important;
+    }
+    
+    .promptpilot-input-stage-3 {
+      border: 2px solid #ff9800 !important;
+      box-shadow: 0 0 16px rgba(255, 152, 0, 0.5) !important;
+      animation: promptpilot-input-pulse-intense 1s ease-in-out infinite !important;
+      background-color: rgba(255, 152, 0, 0.04) !important;
+    }
+    
+    /* Input field animations */
+    @keyframes promptpilot-input-shimmer {
+      0% {
+        left: -100%;
+      }
+      100% {
+        left: 100%;
+      }
+    }
+    
+    @keyframes promptpilot-input-pulse-gentle {
+      0%, 100% {
+        box-shadow: 0 0 8px rgba(66, 133, 244, 0.3);
+        border-color: #4285f4;
+      }
+      50% {
+        box-shadow: 0 0 16px rgba(66, 133, 244, 0.5);
+        border-color: #5a95f5;
+      }
+    }
+    
+    @keyframes promptpilot-input-pulse-thinking {
+      0%, 100% {
+        box-shadow: 0 0 12px rgba(156, 39, 176, 0.4);
+        border-color: #9c27b0;
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(156, 39, 176, 0.6);
+        border-color: #ab47bc;
+        transform: scale(1.01);
+      }
+    }
+    
+    @keyframes promptpilot-input-pulse-intense {
+      0%, 100% {
+        box-shadow: 0 0 16px rgba(255, 152, 0, 0.5);
+        border-color: #ff9800;
+        transform: scale(1);
+      }
+      25% {
+        box-shadow: 0 0 24px rgba(255, 152, 0, 0.7);
+        border-color: #ffa726;
+        transform: scale(1.015);
+      }
+      75% {
+        box-shadow: 0 0 20px rgba(255, 152, 0, 0.6);
+        border-color: #ffb74d;
+        transform: scale(1.005);
+      }
+    }
+    
+    /* Success state for input field */
+    .promptpilot-input-success {
+      border: 2px solid #4caf50 !important;
+      box-shadow: 0 0 12px rgba(76, 175, 80, 0.4) !important;
+      animation: promptpilot-input-success-flash 0.6s ease !important;
+      background-color: rgba(76, 175, 80, 0.05) !important;
+    }
+    
+    @keyframes promptpilot-input-success-flash {
+      0% {
+        box-shadow: 0 0 12px rgba(76, 175, 80, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 24px rgba(76, 175, 80, 0.8);
+        transform: scale(1.02);
+      }
+      100% {
+        box-shadow: 0 0 12px rgba(76, 175, 80, 0.4);
+        transform: scale(1);
+      }
+    }
+    
+    /* Error state for input field */
+    .promptpilot-input-error {
+      border: 2px solid #f44336 !important;
+      box-shadow: 0 0 12px rgba(244, 67, 54, 0.4) !important;
+      animation: promptpilot-input-error-shake 0.5s ease !important;
+      background-color: rgba(244, 67, 54, 0.05) !important;
+    }
+    
+    @keyframes promptpilot-input-error-shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+      20%, 40%, 60%, 80% { transform: translateX(2px); }
+    }
+    
+    /* Responsive considerations for input effects */
+    @media (max-width: 768px) {
+      .promptpilot-input-stage-1,
+      .promptpilot-input-stage-2,
+      .promptpilot-input-stage-3 {
+        animation-duration: 1.5s !important;
+      }
+      
+      .promptpilot-input-processing::before {
+        animation-duration: 1.5s !important;
+      }
+    }
+    
+    /* Accessibility considerations */
+    @media (prefers-reduced-motion: reduce) {
+      .promptpilot-input-processing::before {
+        animation: none !important;
+      }
+      
+      .promptpilot-input-stage-1,
+      .promptpilot-input-stage-2,
+      .promptpilot-input-stage-3 {
+        animation: none !important;
+      }
+      
+      .promptpilot-input-success,
+      .promptpilot-input-error {
+        animation: none !important;
+      }
+    }
+
+    /* Responsive notification positioning */
+    @media (max-width: 768px) {
+      .promptpilot-notification {
+        bottom: 16px;
+        right: 16px;
+      }
+    }
   `;
 
   document.head.appendChild(style);
@@ -2915,4 +3128,323 @@ function cancelCurrentImprovement() {
   chrome.runtime.sendMessage({ type: "CANCEL_IMPROVEMENT" }, () => {
     // Ignore response - this is best effort
   });
+}
+
+/**
+ * Apply visual effects to the tracked input field
+ */
+function applyInputFieldEffects() {
+  if (!lastTextElement) return;
+
+  // Defensive check: ensure element is still valid and in DOM
+  if (!lastTextElement.isConnected || !document.contains(lastTextElement)) {
+    console.warn("Input element is no longer in DOM, skipping visual effects");
+    lastTextElement = null;
+    return;
+  }
+
+  console.log("Applying visual effects to input field");
+
+  // Store original styles for restoration later
+  storeOriginalInputStyles(lastTextElement);
+
+  // Apply initial processing class with shimmer effect
+  lastTextElement.classList.add("promptpilot-input-processing");
+
+  // Apply stage 1 effects
+  updateInputFieldStage(1);
+
+  // Setup stage progression for input effects
+  setupInputEffectStageProgression();
+
+  // Add accessibility attributes for screen readers
+  lastTextElement.setAttribute("aria-busy", "true");
+  lastTextElement.setAttribute("aria-describedby", "promptpilot-input-status");
+
+  // Create screen reader status for input field
+  createInputScreenReaderStatus();
+}
+
+/**
+ * Store original styles of the input element for restoration
+ */
+function storeOriginalInputStyles(element: HTMLElement) {
+  const computedStyles = window.getComputedStyle(element);
+
+  // Store important style properties that we'll be modifying
+  const stylesToStore = [
+    "border",
+    "borderColor",
+    "borderWidth",
+    "borderStyle",
+    "boxShadow",
+    "backgroundColor",
+    "animation",
+    "transform",
+    "position",
+    "overflow",
+  ];
+
+  inputOriginalStyles.clear();
+  stylesToStore.forEach((property) => {
+    const value =
+      computedStyles.getPropertyValue(property) ||
+      element.style.getPropertyValue(property);
+    if (value) {
+      inputOriginalStyles.set(property, value);
+    }
+  });
+
+  // Also store any existing classes that might conflict
+  const existingClasses = Array.from(element.classList).filter(
+    (cls) =>
+      cls.includes("animation") ||
+      cls.includes("effect") ||
+      cls.includes("loading")
+  );
+  if (existingClasses.length > 0) {
+    inputOriginalStyles.set("existingClasses", existingClasses.join(" "));
+  }
+}
+
+/**
+ * Update input field visual stage
+ */
+function updateInputFieldStage(stage: number) {
+  if (!lastTextElement) return;
+
+  // Defensive check: ensure element is still valid
+  if (!lastTextElement.isConnected || !document.contains(lastTextElement)) {
+    console.warn("Input element is no longer in DOM, clearing reference");
+    lastTextElement = null;
+    clearInputEffectIntervals();
+    return;
+  }
+
+  inputEffectStage = stage;
+
+  // Remove previous stage classes
+  lastTextElement.classList.remove(
+    "promptpilot-input-stage-1",
+    "promptpilot-input-stage-2",
+    "promptpilot-input-stage-3"
+  );
+
+  // Apply current stage class
+  lastTextElement.classList.add(`promptpilot-input-stage-${stage}`);
+
+  console.log(`Input field effect stage ${stage} applied`);
+
+  // Update screen reader status
+  updateInputScreenReaderStatus(stage);
+}
+
+/**
+ * Setup stage progression for input field effects
+ */
+function setupInputEffectStageProgression() {
+  // Clear any existing intervals
+  clearInputEffectIntervals();
+
+  // Progress to Stage 2 after 3 seconds (matching button stages)
+  inputEffectInterval = window.setTimeout(() => {
+    if (isImprovementInProgress && lastTextElement) {
+      updateInputFieldStage(2);
+
+      // Progress to Stage 3 after 8 more seconds (11 total)
+      inputEffectInterval = window.setTimeout(() => {
+        if (isImprovementInProgress && lastTextElement) {
+          updateInputFieldStage(3);
+        }
+      }, 8000);
+    }
+  }, 3000);
+}
+
+/**
+ * Create screen reader status for input field effects
+ */
+function createInputScreenReaderStatus() {
+  // Remove existing status element
+  const existing = document.getElementById("promptpilot-input-status");
+  if (existing) {
+    existing.remove();
+  }
+
+  const statusElement = document.createElement("div");
+  statusElement.id = "promptpilot-input-status";
+  statusElement.className = "sr-only";
+  statusElement.style.cssText = `
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  `;
+  statusElement.textContent =
+    "This text field is being improved by PromptPilot...";
+  document.body.appendChild(statusElement);
+}
+
+/**
+ * Update screen reader status for input field
+ */
+function updateInputScreenReaderStatus(stage: number) {
+  const statusElement = document.getElementById("promptpilot-input-status");
+  if (!statusElement) return;
+
+  const stageMessages = {
+    1: "PromptPilot is analyzing your text...",
+    2: "PromptPilot AI is processing improvements...",
+    3: "PromptPilot is finalizing enhancements...",
+  };
+
+  statusElement.textContent =
+    stageMessages[stage as keyof typeof stageMessages] ||
+    "PromptPilot is improving your text...";
+}
+
+/**
+ * Clear input effect intervals and timers
+ */
+function clearInputEffectIntervals() {
+  if (inputEffectInterval) {
+    clearTimeout(inputEffectInterval);
+    inputEffectInterval = null;
+  }
+}
+
+/**
+ * Remove all visual effects from the input field
+ */
+function removeInputFieldEffects() {
+  if (!lastTextElement) return;
+
+  console.log("Removing visual effects from input field");
+
+  // Clear any active intervals
+  clearInputEffectIntervals();
+
+  // Defensive check: if element is no longer valid, just clean up our state
+  if (!lastTextElement.isConnected || !document.contains(lastTextElement)) {
+    console.warn("Input element is no longer in DOM, cleaning up state only");
+    inputOriginalStyles.clear();
+    inputEffectStage = 1;
+    lastTextElement = null;
+
+    // Still remove screen reader status element
+    const statusElement = document.getElementById("promptpilot-input-status");
+    if (statusElement) {
+      statusElement.remove();
+    }
+    return;
+  }
+
+  // Remove all our effect classes
+  lastTextElement.classList.remove(
+    "promptpilot-input-processing",
+    "promptpilot-input-stage-1",
+    "promptpilot-input-stage-2",
+    "promptpilot-input-stage-3"
+  );
+
+  // Restore original styles
+  restoreOriginalInputStyles(lastTextElement);
+
+  // Remove accessibility attributes
+  lastTextElement.removeAttribute("aria-busy");
+  lastTextElement.removeAttribute("aria-describedby");
+
+  // Reset stage tracking
+  inputEffectStage = 1;
+
+  // Remove screen reader status element
+  const statusElement = document.getElementById("promptpilot-input-status");
+  if (statusElement) {
+    statusElement.remove();
+  }
+}
+
+/**
+ * Restore original styles to the input element
+ */
+function restoreOriginalInputStyles(element: HTMLElement) {
+  // Restore original style properties
+  inputOriginalStyles.forEach((value, property) => {
+    if (property === "existingClasses") {
+      // Don't restore this one, it's handled separately
+      return;
+    }
+
+    try {
+      if (value) {
+        element.style.setProperty(property, value, "important");
+      } else {
+        element.style.removeProperty(property);
+      }
+    } catch (error) {
+      console.warn(`Failed to restore style property ${property}:`, error);
+    }
+  });
+
+  // Use a small delay to ensure clean restoration
+  setTimeout(() => {
+    // Remove any lingering important styles we added
+    element.style.removeProperty("border");
+    element.style.removeProperty("box-shadow");
+    element.style.removeProperty("background-color");
+    element.style.removeProperty("animation");
+    element.style.removeProperty("transform");
+  }, 100);
+
+  // Clear the stored styles
+  inputOriginalStyles.clear();
+}
+
+/**
+ * Show success state on the input field
+ */
+function showInputFieldSuccess() {
+  if (!lastTextElement) return;
+
+  console.log("Showing success state on input field");
+
+  // Remove processing effects first
+  removeInputFieldEffects();
+
+  // Apply success effect
+  lastTextElement.classList.add("promptpilot-input-success");
+
+  // Remove success class after animation completes
+  setTimeout(() => {
+    if (lastTextElement) {
+      lastTextElement.classList.remove("promptpilot-input-success");
+    }
+  }, 600); // Match animation duration
+}
+
+/**
+ * Show error state on the input field
+ */
+function showInputFieldError() {
+  if (!lastTextElement) return;
+
+  console.log("Showing error state on input field");
+
+  // Remove processing effects first
+  removeInputFieldEffects();
+
+  // Apply error effect
+  lastTextElement.classList.add("promptpilot-input-error");
+
+  // Remove error class after animation completes
+  setTimeout(() => {
+    if (lastTextElement) {
+      lastTextElement.classList.remove("promptpilot-input-error");
+    }
+  }, 500); // Match animation duration
 }
