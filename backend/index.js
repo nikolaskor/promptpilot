@@ -7,7 +7,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { OpenAI } from "openai";
-import { createImprovePromptTemplate } from "./src/prompts/improve.js";
+import {
+  createImprovePromptTemplate,
+  createIntentBasedImprovePromptTemplate,
+} from "./src/prompts/improve.js";
 import { StripeService } from "./src/stripe/stripe-service.js";
 
 // ADD THIS SECTION - Error handling for production stability
@@ -151,7 +154,7 @@ app.post("/improve", async (req, res) => {
   console.log("Received /improve request:", req.body);
 
   try {
-    const { prompt } = req.body;
+    const { prompt, intent } = req.body;
 
     if (!prompt) {
       console.error("Missing prompt in request body");
@@ -161,6 +164,7 @@ app.post("/improve", async (req, res) => {
     }
 
     console.log(`Processing prompt with ${prompt.length} characters`);
+    console.log(`Intent: ${intent || "general"}`);
 
     // If in demo mode, return a simulated improvement
     if (demoMode) {
@@ -170,15 +174,15 @@ app.post("/improve", async (req, res) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Generate a simple "improved" version for demo purposes
-      const improvedPrompt = generateDemoImprovement(prompt);
+      const improvedPrompt = generateDemoImprovement(prompt, intent);
       console.log("Generated demo improvement, returning response");
       return res.json({ improvedPrompt });
     }
 
     console.log("Calling OpenAI for prompt improvement");
 
-    // Generate an improved prompt using OpenAI
-    const improvedPrompt = await improvePromptWithAI(prompt);
+    // Generate an improved prompt using OpenAI with intent
+    const improvedPrompt = await improvePromptWithAI(prompt, intent);
     console.log("OpenAI improvement successful, returning response");
 
     res.json({ improvedPrompt });
@@ -207,36 +211,94 @@ app.post("/improve", async (req, res) => {
 /**
  * Generate a demo improvement without using OpenAI
  * @param {string} prompt - The original prompt to improve
+ * @param {string} intent - The selected intent for improvement
  * @returns {string} A simulated improved prompt
  */
-function generateDemoImprovement(prompt) {
+function generateDemoImprovement(prompt, intent = "general") {
   // Add some common improvements to make it look like AI enhanced it
   const originalWords = prompt.split(/\s+/).length;
   let improved = prompt;
 
-  // Add specificity
-  improved = "I need " + improved;
+  // Intent-specific demo improvements
+  if (intent === "Academic") {
+    improved = `Research Question: ${improved}
+    
+Please provide a comprehensive analysis that includes:
+- Relevant academic literature and citations
+- Methodological considerations
+- Theoretical framework
+- Expected scholarly outcomes
 
-  // Add some structure
-  improved +=
-    "\n\nPlease include the following:\n- Detailed explanations\n- Examples if possible\n- Step-by-step instructions";
+Context: This is for academic research purposes.`;
+  } else if (intent === "Professional") {
+    improved = `Business Objective: ${improved}
 
-  // Add context
-  improved += "\n\nThis is for educational purposes.";
+Please include the following in your response:
+- Executive summary
+- Key performance indicators (KPIs)
+- Implementation timeline
+- Risk assessment and mitigation strategies
+- ROI considerations
 
-  console.log(`Demo mode: Improved prompt from ${originalWords} words`);
+Context: This is for professional business planning.`;
+  } else if (intent === "Creative") {
+    improved = `Creative Brief: ${improved}
+
+Please develop this with:
+- Vivid, imaginative descriptions
+- Unique perspectives and original ideas
+- Emotional resonance and artistic merit
+- Specific style, tone, or genre considerations
+- Target audience engagement
+
+Context: This is for creative expression and artistic development.`;
+  } else if (intent === "Technical") {
+    improved = `Technical Specification: ${improved}
+
+Please provide detailed information including:
+- System requirements and constraints
+- Implementation approach and architecture
+- Code examples or technical documentation
+- Performance considerations and optimization
+- Best practices and standards compliance
+
+Context: This is for technical implementation and development.`;
+  } else if (intent === "Personal") {
+    improved = `Personal Request: ${improved}
+
+Please make your response:
+- Personalized and relatable to everyday situations
+- Practical and actionable for individual use
+- Warm and conversational in tone
+- Focused on personal growth and practical benefits
+
+Context: This is for personal development and everyday application.`;
+  } else {
+    // Default improvement
+    improved = "I need " + improved;
+    improved +=
+      "\n\nPlease include the following:\n- Detailed explanations\n- Examples if possible\n- Step-by-step instructions";
+    improved += "\n\nThis is for educational purposes.";
+  }
+
+  console.log(
+    `Demo mode: Improved prompt from ${originalWords} words with intent: ${intent}`
+  );
   return improved;
 }
 
 /**
  * Improve a prompt using OpenAI
  * @param {string} prompt - The original prompt to improve
+ * @param {string} intent - The selected intent for improvement
  * @returns {Promise<string>} The improved prompt
  */
-async function improvePromptWithAI(prompt) {
+async function improvePromptWithAI(prompt, intent = "general") {
   try {
-    // Create the prompt template
-    const template = createImprovePromptTemplate(prompt);
+    // Create the intent-based prompt template
+    const template = createIntentBasedImprovePromptTemplate(prompt, intent);
+
+    console.log(`Using intent-based template with intent: ${intent}`);
 
     // Call OpenAI API
     const response = await openai.chat.completions.create({
@@ -258,6 +320,7 @@ async function improvePromptWithAI(prompt) {
         prompt.length > 50 ? "..." : ""
       }"`
     );
+    console.log(`Intent: ${intent}`);
     console.log(
       `Improved prompt: "${improvedPrompt.substring(0, 50)}${
         improvedPrompt.length > 50 ? "..." : ""

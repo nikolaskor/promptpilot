@@ -117,7 +117,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Track the improvement attempt
         const startTime = Date.now();
 
-        improvePrompt(text)
+        improvePrompt(text, intent)
           .then(async (improvedText) => {
             const endTime = Date.now();
             const processingTime = endTime - startTime;
@@ -551,11 +551,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 /**
  * Send text to the backend API for improvement
  * @param text - The text to improve
+ * @param intent - The selected intent for improvement
  */
-async function improvePrompt(text: string): Promise<string> {
+async function improvePrompt(text: string, intent: string): Promise<string> {
   console.log(
     "improvePrompt: Starting prompt improvement for text of length:",
-    text.length
+    text.length,
+    "with intent:",
+    intent
   );
 
   // Try multiple approaches to fetch data
@@ -569,7 +572,7 @@ async function improvePrompt(text: string): Promise<string> {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, intent }),
         mode: "cors",
         credentials: "omit",
       });
@@ -583,7 +586,7 @@ async function improvePrompt(text: string): Promise<string> {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, intent }),
         credentials: "omit",
       });
     },
@@ -667,7 +670,7 @@ async function improvePrompt(text: string): Promise<string> {
 
         // Fall back to demo mode
         console.log("improvePrompt: All attempts failed, using demo mode");
-        const demoImprovedText = `Write a better prompt  [DEMO MODE] Backend connection failed after ${fetchApproaches.length} attempts. This is a simulated improved prompt. Error: ${error.message}`;
+        const demoImprovedText = `Write a better prompt for ${intent} purposes [DEMO MODE] Backend connection failed after ${fetchApproaches.length} attempts. This is a simulated improved prompt. Error: ${error.message}`;
 
         // Store the improved text in session storage
         try {
@@ -688,7 +691,7 @@ async function improvePrompt(text: string): Promise<string> {
   }
 
   // This should never be reached, but just in case
-  return `Write a better prompt  [DEMO MODE] Unexpected error occurred.`;
+  return `Write a better prompt for ${intent} purposes [DEMO MODE] Unexpected error occurred.`;
 }
 
 // Initialize immediately
