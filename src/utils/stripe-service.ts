@@ -154,9 +154,20 @@ export class StripeService {
       const customerId = result.stripeCustomerId;
 
       if (!customerId) {
-        throw new Error(
-          "No customer ID found. Please complete a purchase first."
-        );
+        // Check if we have any stored subscription data that might help
+        const subscriptionStatus = await this.getSubscriptionStatus();
+
+        if (subscriptionStatus.hasActiveSubscription) {
+          // We have an active subscription but no customer ID stored
+          // This might happen if the extension was reinstalled or data was cleared
+          throw new Error(
+            "Subscription data found but customer ID is missing. Please contact support or try signing out and back in. If you recently made a purchase, please wait a few minutes and try again."
+          );
+        } else {
+          throw new Error(
+            "No active subscription found. Please upgrade to a premium plan first."
+          );
+        }
       }
 
       // Create portal session via backend
@@ -338,6 +349,86 @@ export class StripeService {
       console.log("Cleared stored customer data");
     } catch (error) {
       console.error("Error clearing customer data:", error);
+    }
+  }
+
+  /**
+   * Debug: Get all stored Stripe-related data
+   */
+  static async getStoredStripeData(): Promise<{
+    customerId: string | null;
+    hasStoredData: boolean;
+  }> {
+    try {
+      const result = await chrome.storage.local.get(["stripeCustomerId"]);
+      return {
+        customerId: result.stripeCustomerId || null,
+        hasStoredData: !!result.stripeCustomerId,
+      };
+    } catch (error) {
+      console.error("Error getting stored Stripe data:", error);
+      return {
+        customerId: null,
+        hasStoredData: false,
+      };
+    }
+  }
+
+  /**
+   * Attempt to recover subscription by re-checking with backend
+   */
+  static async attemptSubscriptionRecovery(userEmail?: string): Promise<{
+    success: boolean;
+    message: string;
+    customerId?: string;
+  }> {
+    try {
+      if (!userEmail) {
+        return {
+          success: false,
+          message: "Email address required for subscription recovery",
+        };
+      }
+
+      // Try to find customer by email via backend
+      const response = await fetch(`${BACKEND_URL}/stripe/find-customer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to search for customer account");
+      }
+
+      const { found, customerId, hasActiveSubscription } =
+        await response.json();
+
+      if (found && customerId) {
+        // Store the recovered customer ID
+        await chrome.storage.local.set({ stripeCustomerId: customerId });
+
+        return {
+          success: true,
+          message: hasActiveSubscription
+            ? "Subscription data recovered successfully!"
+            : "Customer account found but no active subscription",
+          customerId,
+        };
+      } else {
+        return {
+          success: false,
+          message: "No customer account found with this email address",
+        };
+      }
+    } catch (error) {
+      console.error("Error attempting subscription recovery:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Recovery failed",
+      };
     }
   }
 }

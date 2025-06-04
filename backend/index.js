@@ -400,31 +400,26 @@ app.post("/stripe/subscription-status", async (req, res) => {
     const { customerId } = req.body;
 
     if (!customerId) {
+      console.error("Missing customerId in request body");
       return res.status(400).json({
-        error: "Missing customerId",
+        error: "Missing customerId in request body",
       });
     }
 
-    // Demo mode response if Stripe is not configured
-    if (stripeDemoMode) {
-      console.log("Stripe demo mode: Returning simulated subscription status");
-      return res.json({
-        status: "free",
-        hasActiveSubscription: false,
-        demoMode: true,
-        message:
-          "Demo mode: Stripe not configured. See backend/STRIPE_SETUP_GUIDE.md for setup instructions.",
-      });
-    }
+    console.log(`Getting subscription status for customer: ${customerId}`);
 
-    const status = await StripeService.getSubscriptionStatus(customerId);
-    res.json(status);
+    const subscriptionStatus = await StripeService.getSubscriptionStatus(
+      customerId
+    );
+
+    console.log("Subscription status:", subscriptionStatus);
+
+    res.json(subscriptionStatus);
   } catch (error) {
     console.error("Error getting subscription status:", error);
     res.status(500).json({
       error: "Failed to get subscription status",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      details: error.message,
     });
   }
 });
@@ -1062,6 +1057,36 @@ app.get("/status", async (req, res) => {
       error: "Status check failed",
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Find customer by email endpoint
+app.post("/stripe/find-customer", async (req, res) => {
+  console.log("Received /stripe/find-customer request:", req.body);
+
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      console.error("Missing email in request body");
+      return res.status(400).json({
+        error: "Missing email in request body",
+      });
+    }
+
+    console.log(`Searching for customer with email: ${email}`);
+
+    const customerInfo = await StripeService.findCustomerByEmail(email);
+
+    console.log("Customer search result:", customerInfo);
+
+    res.json(customerInfo);
+  } catch (error) {
+    console.error("Error finding customer:", error);
+    res.status(500).json({
+      error: "Failed to find customer",
+      details: error.message,
     });
   }
 });

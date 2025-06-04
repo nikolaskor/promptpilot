@@ -122,7 +122,7 @@ export class StripeService {
       });
 
       return subscriptions.data;
-    } catch (error) { 
+    } catch (error) {
       console.error("Error fetching customer subscriptions:", error);
       throw error;
     }
@@ -458,6 +458,48 @@ export class StripeService {
       return validation;
     } catch (error) {
       console.error("Error validating webhook config:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find customer by email address
+   * @param {string} email - Customer email to search for
+   * @returns {Promise<Object>} Customer information including ID and subscription status
+   */
+  static async findCustomerByEmail(email) {
+    try {
+      const stripeInstance = getStripeInstance();
+
+      // Search for customers with this email
+      const customers = await stripeInstance.customers.list({
+        email: email,
+        limit: 1,
+      });
+
+      if (customers.data.length === 0) {
+        return {
+          found: false,
+          message: "No customer found with this email address",
+        };
+      }
+
+      const customer = customers.data[0];
+      console.log("Found customer:", customer.id);
+
+      // Check if this customer has any active subscriptions
+      const subscriptions = await this.getCustomerSubscriptions(customer.id);
+
+      return {
+        found: true,
+        customerId: customer.id,
+        email: customer.email,
+        name: customer.name,
+        hasActiveSubscription: subscriptions.length > 0,
+        subscriptionCount: subscriptions.length,
+      };
+    } catch (error) {
+      console.error("Error finding customer by email:", error);
       throw error;
     }
   }

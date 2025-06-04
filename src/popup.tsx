@@ -379,6 +379,65 @@ const Popup: React.FC = () => {
     try {
       const result = await StripeService.openCustomerPortal();
       if (!result.success) {
+        // Check if this is a customer ID missing error and we have a Google user
+        if (
+          result.error?.includes("customer ID is missing") ||
+          result.error?.includes("No customer ID found")
+        ) {
+          if (state.googleUser?.email) {
+            // Attempt to recover subscription data using the user's email
+            setState((prev) => ({
+              ...prev,
+              error: "Attempting to recover your subscription data...",
+            }));
+
+            const recoveryResult =
+              await StripeService.attemptSubscriptionRecovery(
+                state.googleUser.email
+              );
+
+            if (recoveryResult.success) {
+              // Recovery successful, try opening portal again
+              setState((prev) => ({
+                ...prev,
+                error: "Subscription recovered! Opening customer portal...",
+              }));
+
+              setTimeout(async () => {
+                const retryResult = await StripeService.openCustomerPortal();
+                if (retryResult.success) {
+                  setState((prev) => ({ ...prev, error: null }));
+                } else {
+                  setState((prev) => ({
+                    ...prev,
+                    error: `Portal access failed: ${retryResult.error}`,
+                  }));
+                }
+              }, 1000);
+
+              // Also reload subscription status to update UI
+              loadStripeSubscriptionStatus();
+              return;
+            } else {
+              setState((prev) => ({
+                ...prev,
+                error: `Recovery failed: ${recoveryResult.message}. Please contact support if you believe this is an error.`,
+              }));
+              return;
+            }
+          } else {
+            // No Google user available for recovery
+            setState((prev) => ({
+              ...prev,
+              error:
+                result.error +
+                " Please sign in with Google to attempt recovery, or contact support.",
+            }));
+            return;
+          }
+        }
+
+        // For other errors, show the original error
         throw new Error(result.error || "Failed to open customer portal");
       }
     } catch (error) {
