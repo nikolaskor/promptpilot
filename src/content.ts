@@ -7,7 +7,7 @@
 // State tracking
 let isImprovementInProgress = false;
 let lastTextElement: HTMLElement | null = null;
-let selectedIntent = "";
+let selectedIntent = "General"; // Default to General intent
 let isDropdownOpen = false;
 let isWidgetExpanded = false;
 
@@ -32,6 +32,7 @@ let currentPlatform: keyof typeof PLATFORM_CONFIGS = "default";
 
 // Intent categories
 const INTENT_CATEGORIES = [
+  "General",
   "Academic",
   "Professional",
   "Creative",
@@ -162,6 +163,11 @@ const LOADING_STAGES = {
 };
 
 const CONTEXTUAL_MESSAGES = {
+  General: [
+    "Improving clarity and structure...",
+    "Enhancing overall effectiveness...",
+    "Optimizing for better results...",
+  ],
   Academic: [
     "Enhancing academic tone...",
     "Improving scholarly structure...",
@@ -905,15 +911,17 @@ function createFixedButton() {
 
   // Create intent selector icon
   const intentButton = document.createElement("button");
-  intentButton.className = "promptpilot-intent-button";
+  intentButton.className = "promptpilot-intent-button intent-general";
   intentButton.innerHTML = `
     <div class="promptpilot-intent-default">
-      <span class="promptpilot-intent-icon">🎯</span>
-      <span class="promptpilot-intent-label">Pick</span>
+      <span class="promptpilot-intent-icon">✨</span>
+      <span class="promptpilot-intent-label">Gen</span>
     </div>
   `;
-  intentButton.title = "Select intent category";
+  intentButton.title =
+    "General mode (default) - Click to select intent, double-click to reset";
   intentButton.addEventListener("click", handleIntentButtonClick);
+  intentButton.addEventListener("dblclick", resetIntent);
 
   // Create intent dropdown (hidden by default)
   const intentDropdown = document.createElement("div");
@@ -926,7 +934,16 @@ function createFixedButton() {
   INTENT_CATEGORIES.forEach((category) => {
     const item = document.createElement("li");
     item.className = "promptpilot-intent-item";
-    item.textContent = category;
+
+    // Add special styling for General option
+    if (category === "General") {
+      item.className += " intent-general";
+      item.innerHTML = `✨ ${category} <span style="font-size: 10px; opacity: 0.7;">(default)</span>`;
+    } else {
+      const emoji = getIntentEmoji(category);
+      item.innerHTML = `${emoji} ${category}`;
+    }
+
     item.addEventListener("click", () => handleIntentSelect(category));
     dropdownList.appendChild(item);
   });
@@ -2282,6 +2299,16 @@ function injectStyles() {
       box-shadow: 0 4px 12px rgba(76, 175, 80, 0.5);
     }
     
+    .promptpilot-intent-button.intent-general {
+      background: linear-gradient(135deg, #9c27b0 0%, #673ab7 100%);
+      box-shadow: 0 3px 8px rgba(156, 39, 176, 0.3);
+    }
+    
+    .promptpilot-intent-button.intent-general:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+    }
+    
     .promptpilot-intent-indicator {
       position: absolute;
       top: -2px;
@@ -2296,9 +2323,17 @@ function injectStyles() {
       transition: all 0.3s ease;
     }
     
-    .promptpilot-intent-button:has(.promptpilot-intent-indicator) .promptpilot-intent-indicator {
-      opacity: 1;
-      transform: scale(1);
+    /* Intent dropdown enhancements */
+    .promptpilot-intent-item.intent-general {
+      background: linear-gradient(90deg, #f3e5f5 0%, #e1bee7 100%);
+      font-weight: 600;
+      border-bottom: 2px solid #9c27b0;
+    }
+    
+    .promptpilot-intent-item.intent-general:hover {
+      background: linear-gradient(90deg, #e1bee7 0%, #ce93d8 100%);
+      color: #4a148c;
+      transform: translateX(4px);
     }
     
     /* Intent dropdown */
@@ -2991,21 +3026,42 @@ function handleIntentSelect(intent: string) {
   if (intentButton) {
     intentButton.classList.remove("active");
 
-    // Show the selected intent clearly with emoji and abbreviated name
-    const intentEmoji = getIntentEmoji(intent);
-    const intentShort = getIntentShortName(intent);
+    // Handle General intent as default/reset state
+    if (intent === "General") {
+      intentButton.innerHTML = `
+        <div class="promptpilot-intent-default">
+          <span class="promptpilot-intent-icon">✨</span>
+          <span class="promptpilot-intent-label">Gen</span>
+        </div>
+      `;
+      intentButton.title = "General mode (default)";
+      intentButton.classList.remove("intent-selected");
+      intentButton.classList.add("intent-general");
+    } else {
+      // Show the selected intent clearly with emoji and abbreviated name
+      const intentEmoji = getIntentEmoji(intent);
+      const intentShort = getIntentShortName(intent);
 
-    intentButton.innerHTML = `
-      <div class="promptpilot-intent-selected">
-        <span class="promptpilot-intent-emoji">${intentEmoji}</span>
-        <span class="promptpilot-intent-short">${intentShort}</span>
-      </div>
-    `;
-    intentButton.title = `Selected intent: ${intent}`;
-    intentButton.classList.add("intent-selected");
+      intentButton.innerHTML = `
+        <div class="promptpilot-intent-selected">
+          <span class="promptpilot-intent-emoji">${intentEmoji}</span>
+          <span class="promptpilot-intent-short">${intentShort}</span>
+        </div>
+      `;
+      intentButton.title = `Selected intent: ${intent} (click to change)`;
+      intentButton.classList.add("intent-selected");
+      intentButton.classList.remove("intent-general");
+    }
   }
 
   console.log("Selected intent:", intent);
+}
+
+/**
+ * Reset intent to General (default mode)
+ */
+function resetIntent() {
+  handleIntentSelect("General");
 }
 
 /**
@@ -3013,6 +3069,7 @@ function handleIntentSelect(intent: string) {
  */
 function getIntentShortName(intent: string): string {
   const shortNames: { [key: string]: string } = {
+    General: "Gen",
     Academic: "Acad",
     Professional: "Pro",
     Creative: "Art",
