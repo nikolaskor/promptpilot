@@ -173,9 +173,9 @@ const Popup: React.FC = () => {
     // Log the initial state
     console.log("Popup initialized with state:", state);
 
-    // Try to load captured text and the last improved prompt from session storage
+    // Try to load captured text and the last improved prompt from local storage
     try {
-      chrome.storage.session.get(
+      chrome.storage.local.get(
         ["lastCapturedText", "lastImprovedText"],
         (result) => {
           // Update state with original text if available
@@ -184,7 +184,7 @@ const Popup: React.FC = () => {
             typeof result.lastCapturedText === "string"
           ) {
             console.log(
-              "Loaded text from session storage:",
+              "Loaded text from local storage:",
               result.lastCapturedText
             );
             setState((prev) => ({
@@ -192,7 +192,7 @@ const Popup: React.FC = () => {
               originalPrompt: result.lastCapturedText,
             }));
           } else {
-            console.log("No captured text found in session storage");
+            console.log("No captured text found in local storage");
           }
 
           // Also check if we have an improved version already
@@ -201,7 +201,7 @@ const Popup: React.FC = () => {
             typeof result.lastImprovedText === "string"
           ) {
             console.log(
-              "Loaded improved text from session storage:",
+              "Loaded improved text from local storage:",
               result.lastImprovedText
             );
             setState((prev) => ({
@@ -213,7 +213,7 @@ const Popup: React.FC = () => {
         }
       );
     } catch (e) {
-      console.error("Error accessing session storage:", e);
+      console.error("Error accessing local storage:", e);
     }
 
     // Function to get text from active tab
@@ -248,8 +248,8 @@ const Popup: React.FC = () => {
                           ...prev,
                           originalPrompt: response.text,
                         }));
-                        // Also save to session storage
-                        chrome.storage.session.set({
+                        // Also save to local storage
+                        chrome.storage.local.set({
                           lastCapturedText: response.text,
                         });
                       }

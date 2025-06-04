@@ -422,9 +422,9 @@ function handleImprovedText(improvedText: string, sendResponse: Function) {
     // Show success UI
     showSuccessState();
 
-    // Store the improved text in session storage
-    chrome.storage.session.set({ lastImprovedText: improvedText }, () => {
-      console.log("Saved improved text to session storage");
+    // Store the improved text in local storage
+    chrome.storage.local.set({ lastImprovedText: improvedText }, () => {
+      console.log("Saved improved text to local storage");
     });
 
     sendResponse({ status: "text_updated" });
@@ -1098,9 +1098,9 @@ function handleImproveClick() {
   isImprovementInProgress = true;
   showLoadingStateWithIntent();
 
-  // Save to session storage for popup
-  chrome.storage.session.set({ lastCapturedText: text }, () => {
-    console.log("Saved text to session storage");
+  // Save to local storage for popup
+  chrome.storage.local.set({ lastCapturedText: text }, () => {
+    console.log("Saved text to local storage");
   });
 
   // Send to background script for improvement

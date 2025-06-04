@@ -359,13 +359,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "CAPTURED_TEXT") {
     console.log("Received CAPTURED_TEXT, forwarding to popup");
 
-    // Store in session storage
+    // Store in local storage
     try {
-      chrome.storage.session.set({ lastCapturedText: request.text }, () => {
-        console.log("Saved captured text to session storage");
+      chrome.storage.local.set({ lastCapturedText: request.text }, () => {
+        console.log("Saved captured text to local storage");
       });
     } catch (err) {
-      console.error("Error saving to session storage:", err);
+      console.error("Error saving to local storage:", err);
     }
 
     // Forward to popup if open
@@ -641,13 +641,13 @@ async function improvePrompt(text: string, intent: string): Promise<string> {
         throw new Error("Backend response missing improvedPrompt field");
       }
 
-      // Store the improved text in session storage
+      // Store the improved text in local storage
       try {
-        chrome.storage.session.set({ lastImprovedText: data.improvedPrompt });
-        console.log("improvePrompt: Saved improved text to session storage");
+        chrome.storage.local.set({ lastImprovedText: data.improvedPrompt });
+        console.log("improvePrompt: Saved improved text to local storage");
       } catch (err) {
         console.error(
-          "improvePrompt: Error saving improved text to session storage:",
+          "improvePrompt: Error saving improved text to local storage:",
           err
         );
       }
@@ -672,15 +672,15 @@ async function improvePrompt(text: string, intent: string): Promise<string> {
         console.log("improvePrompt: All attempts failed, using demo mode");
         const demoImprovedText = `Write a better prompt for ${intent} purposes [DEMO MODE] Backend connection failed after ${fetchApproaches.length} attempts. This is a simulated improved prompt. Error: ${error.message}`;
 
-        // Store the improved text in session storage
+        // Store the improved text in local storage
         try {
-          chrome.storage.session.set({ lastImprovedText: demoImprovedText });
+          chrome.storage.local.set({ lastImprovedText: demoImprovedText });
           console.log(
-            "improvePrompt: Saved demo fallback text to session storage"
+            "improvePrompt: Saved demo fallback text to local storage"
           );
         } catch (err) {
           console.error(
-            "improvePrompt: Error saving demo text to session storage:",
+            "improvePrompt: Error saving demo text to local storage:",
             err
           );
         }
