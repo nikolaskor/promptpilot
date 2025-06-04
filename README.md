@@ -78,6 +78,8 @@ npm run backend
 - Start backend server: `npm run backend`
 - Run both together: `npm run start`
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/nikolaskor/promptpilot?utm_source=oss&utm_medium=github&utm_campaign=nikolaskor%2Fpromptpilot&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 ## License
 
 MIT
