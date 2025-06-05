@@ -2,14 +2,38 @@
  * Analytics and usage tracking types for PromptPilot
  */
 
+// Segment-based intent types for the AI Prompt Operating System
+export type Intent =
+  | "creator"
+  | "developer"
+  | "student"
+  | "researcher"
+  | "general";
+
+// Platform-specific types for targeted optimization
+export type Platform =
+  | "chatgpt"
+  | "claude"
+  | "gemini"
+  | "perplexity"
+  | "midjourney"
+  | "cursor"
+  | "vscode"
+  | "notion"
+  | "unknown";
+
+// Segment-specific user personas
+export interface UserSegment {
+  primary: Intent;
+  secondaryInterests: Intent[];
+  preferredPlatforms: Platform[];
+  experienceLevel: "beginner" | "intermediate" | "advanced";
+}
+
 export interface UserSettings {
-  selectedIntent:
-    | "academic"
-    | "professional"
-    | "creative"
-    | "technical"
-    | "personal"
-    | "general";
+  selectedIntent: Intent;
+  segmentProfile?: UserSegment;
+  hasCompletedSegmentOnboarding: boolean;
   usageCount: number;
   subscriptionStatus: "free" | "premium" | "lifetime";
   lastResetDate: Date;
@@ -32,6 +56,14 @@ export interface PromptImprovement {
   processingTimeMs: number;
   success: boolean;
   errorMessage?: string;
+}
+
+// Enhanced prompt improvement tracking
+export interface SegmentPromptImprovement extends PromptImprovement {
+  segment: Intent;
+  platform: Platform;
+  effectivenessRating?: number;
+  userFeedback?: "helpful" | "not_helpful";
 }
 
 export interface UsageAnalytics {
@@ -68,6 +100,7 @@ export const STORAGE_KEYS: StorageKeys = {
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   selectedIntent: "general",
+  hasCompletedSegmentOnboarding: false,
   usageCount: 0,
   subscriptionStatus: "free",
   lastResetDate: new Date(),

@@ -1,219 +1,247 @@
 # PromptPilot Chrome Extension PRD
 
 ## Overview
-**PromptPilot** is a Chrome extension that simplifies and enhances prompt creation for users of LLM websites (e.g., ChatGPT, Claude, Gemini), making AI interactions more effective and accessible with a single click. It solves the problem of poor AI responses caused by inadequate prompts, targeting students and non-technical users who need better results from AI without learning complex prompt engineering techniques.
+**PromptPilot** is not just a Chrome extension — it's an **AI Prompt Operating System** that serves as an intent-aware prompt intelligence layer, optimizing how users interact with AI tools across different segments. Whether you're a creator working with MidJourney, a developer using Cursor, a student leveraging AI for learning, or a researcher collaborating with AI, PromptPilot transforms vague ideas into AI-ready prompts with precision.
 
-The extension provides immediate value by automatically improving user prompts before they're sent to AI models, resulting in more accurate, helpful, and contextually appropriate responses.
+The extension solves the critical problem of poor AI responses caused by inadequate prompts, but does so through a strategic, segment-specific approach that addresses the unique needs of distinct user communities.
+
+**Core Positioning**: "Prompt like a pro. Whether you're coding, creating, or researching — PromptPilot transforms vague ideas into AI-ready prompts with precision."
+
+## Strategic Use Case Segments
+
+### 🎨 Creators (Image & Video Generation)
+- **Target Tools**: MidJourney, DALL·E, Runway, Leonardo AI, Pika, Kaiber, Stable Diffusion
+- **Value Proposition**: "From sketch to stunning — prompt MidJourney with intent"
+- **Core Pain Point**: Vague descriptions result in disappointing visual outputs; creators waste time on iteration cycles
+- **PromptPilot Solution**: 
+  - Understands artistic styles, aspect ratios, quality levels, lighting conditions
+  - Converts casual descriptions into production-ready visual prompts
+  - Reduces creative iteration time from hours to minutes
+- **Example Transformation**: 
+  - Before: "a forest scene"
+  - After: "Create a cinematic 16:9 anime-style forest scene at golden hour with dramatic lighting, ultra-detailed foliage, and ethereal atmosphere"
+
+### 👨‍💻 Developers (AI Coding Assistance)
+- **Target Tools**: Cursor, VS Code, GitHub Copilot, GPT APIs, Claude, Replit
+- **Value Proposition**: "Talk to AI like a senior engineer"
+- **Core Pain Point**: Generic coding prompts produce buggy, context-lacking code that requires extensive revision
+- **PromptPilot Solution**:
+  - Converts vague requests into clear, context-rich development instructions
+  - Includes technical specifications, error handling, and best practices
+  - Future integration with IDEs for seamless workflow enhancement
+- **Example Transformation**:
+  - Before: "write a function to sort data"
+  - After: "Write a TypeScript function that sorts an array of User objects by lastName (ascending), then by firstName (ascending). Include proper type definitions, handle null/undefined values gracefully, and add JSDoc documentation with examples."
+
+### 📚 Students (Academic Learning & Exam Prep)
+- **Target Tools**: ChatGPT, NotebookLM, Claude, Perplexity, Notion AI, study platforms
+- **Value Proposition**: "Study smarter with prompt-powered AI tutors"
+- **Core Pain Point**: Students get surface-level answers instead of deep, learning-oriented explanations
+- **PromptPilot Solution**:
+  - Transforms questions into learning-focused prompts that encourage understanding
+  - Promotes academic integrity through proper framing and citation requests
+  - Templates for different learning objectives (comprehension, analysis, synthesis)
+- **Example Transformation**:
+  - Before: "explain photosynthesis"
+  - After: "Explain photosynthesis for a college biology course, including: 1) the two main stages and their locations, 2) key inputs and outputs, 3) the role of chlorophyll and light reactions, 4) how this connects to cellular respiration. Use analogies to help me understand the energy conversion process."
+
+### 🔬 Researchers (Scientific Exploration & Academic Work)
+- **Target Tools**: Claude, GPT-4, Perplexity, research databases, academic writing tools
+- **Value Proposition**: "Frame better questions. Get better answers"
+- **Core Pain Point**: Research queries lack academic rigor and fail to leverage AI's analytical capabilities effectively
+- **PromptPilot Solution**:
+  - Encourages use of academic language and systematic inquiry frameworks
+  - Templates for literature review, hypothesis generation, data analysis
+  - Tailors prompts based on research methodology and academic standards
+- **Example Transformation**:
+  - Before: "what does research say about remote work"
+  - After: "Conduct a systematic analysis of remote work productivity research published 2020-2024. Structure your response as: 1) Key findings from peer-reviewed studies, 2) Methodological approaches used, 3) Conflicting evidence and limitations, 4) Gaps in current research, 5) Implications for organizational policy. Include proper academic citations where possible."
 
 ## Core Features
 
-### 1. General Prompt Improvement
-- **What it does**: Automatically enhances any user prompt for better AI responses using advanced prompt engineering techniques
-- **Why it's important**: Most users don't know how to structure effective prompts, leading to poor AI outputs
-- **How it works**: Intercepts user input, processes it through GPT-4o, and replaces the original prompt with an improved version
+### 1. Intent-Based Prompt Optimization
+- **What it does**: Provides specialized prompt improvements based on user-selected segments (Creator, Developer, Student, Researcher) plus General
+- **Why it's critical**: Different use cases require fundamentally different prompt structures, technical language, and output expectations
+- **How it works**: User selects their role/intent, and PromptPilot applies segment-specific optimization templates that enhance context, specify desired output format, and include relevant constraints
 
-### 2. Intent-Based Optimization
-- **What it does**: Provides specialized prompt improvements based on user-selected categories that align with specific use cases and desired outcomes:
-  - **Academic**: Research papers, assignments, study guides, exam prep, thesis writing
-  - **Professional**: Business analysis, reports, presentations, project planning, problem-solving
-  - **Creative**: Content creation, storytelling, brainstorming, marketing copy, social media
-  - **Technical**: Code review, debugging help, architecture decisions, documentation, tutorials
-  - **Personal**: Learning new topics, decision-making, planning, casual questions, explanations
-- **Why it's important**: Different purposes require different prompt structures, tone, depth, and formatting to achieve optimal AI responses
-- **How it works**: User selects intent from dropdown, extension applies purpose-specific optimization templates that enhance context, specify desired output format, and include relevant constraints
+### 2. Segment-Specific Templates & Guidelines
+- **Creator Templates**: Include aspect ratios, artistic styles, lighting conditions, quality modifiers
+- **Developer Templates**: Specify programming languages, include technical context, request documentation
+- **Student Templates**: Frame for learning objectives, request explanations and examples
+- **Researcher Templates**: Apply academic rigor, request citations, structured analysis
 
-### 3. Seamless Integration
-- **What it does**: Automatically detects and integrates with popular LLM websites without disrupting user workflow
-- **Why it's important**: Users shouldn't need to change their existing habits or learn new interfaces
-- **How it works**: Content script detects input fields on supported sites and injects improvement functionality
+### 3. Universal AI Platform Integration
+- **What it does**: Seamlessly works across all major AI platforms without disrupting workflow
+- **Supported Platforms**: ChatGPT, Claude, Gemini, Perplexity, MidJourney (Discord), and emerging AI tools
+- **How it works**: Intelligent content script detection with platform-specific optimization
 
-### 4. Usage Tracking & Limits
-- **What it does**: Tracks prompt improvements and enforces freemium limits with clear notifications
-- **Why it's important**: Enables sustainable business model while providing value to free users
-- **How it works**: Local storage tracks usage count, displays remaining improvements, and prompts for upgrade
+### 4. Usage Analytics & Personalization
+- **What it does**: Tracks improvement effectiveness and personalizes suggestions based on user segment and usage patterns
+- **Why it matters**: Enables continuous improvement of segment-specific templates and user experience
+- **How it works**: Local analytics with privacy-first approach, segment-based usage insights
 
 ## User Experience
 
-### User Personas
-- **Primary**: College students using AI for research, assignments, and learning
-- **Secondary**: Non-technical professionals using AI for work tasks, content creation, and problem-solving
+### User Personas (Refined)
+- **Primary**: Digital creators struggling with AI art prompts (25-35 years old, creative professionals)
+- **Secondary**: Developers seeking better AI coding assistance (22-40 years old, software engineers)
+- **Tertiary**: Students using AI for learning enhancement (18-25 years old, college/university)
+- **Quaternary**: Researchers leveraging AI for academic work (25-50 years old, academics/scientists)
 
-### Key User Flows
-1. **First-time Setup**: Install extension → Brief onboarding → Select default intent → Start using
-2. **Daily Usage**: Type prompt → Click "Improve" button → Review enhanced prompt → Submit to AI
-3. **Intent Selection**: Access dropdown → Choose specific intent → Apply to current or future prompts
-4. **Upgrade Flow**: Reach limit → See upgrade notification → Choose subscription or one-time payment
+### Onboarding Flow
+1. **Segment Selection**: "What do you primarily use AI for?" with clear category explanations
+2. **Platform Detection**: Auto-detect current AI platform and show relevant examples
+3. **First Improvement**: Guided experience showing before/after for their segment
+4. **Template Introduction**: Brief overview of available templates for their use case
 
-### UI/UX Considerations
-- Minimal, non-intrusive interface that doesn't clutter existing LLM websites
-- Clear visual feedback when prompts are being processed or improved
-- Intuitive intent selection with helpful descriptions
-- Prominent but non-aggressive upgrade prompts for free users
+### Segment-Specific Messaging
+- **🎨 Creators**: "Turn vague ideas into cinematic AI visuals"
+- **👨‍💻 Developers**: "Get precise instructions for building, debugging, or documenting code"
+- **📚 Students**: "Turn AI into a super tutor and research assistant"
+- **🔬 Researchers**: "Prompt AI like a research collaborator"
 
 ## Technical Architecture
 
-### System Components
-- **Content Script**: Injected into LLM websites to detect input fields and add UI elements
-- **Background Script**: Handles API calls, storage management, and cross-tab communication
-- **Popup Interface**: Settings, usage tracking, and account management
-- **Backend API**: Processes prompts through selected AI models and handles user authentication
-
-### Data Models
+### Enhanced Data Models
 ```typescript
-interface UserSettings {
-  selectedIntent: 'academic' | 'professional' | 'creative' | 'technical' | 'personal' | 'general';
-  usageCount: number;
-  subscriptionStatus: 'free' | 'premium' | 'lifetime';
-  lastResetDate: Date;
+interface UserSegment {
+  primary: 'creator' | 'developer' | 'student' | 'researcher' | 'general';
+  secondaryInterests: string[];
+  preferredPlatforms: string[];
+  experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+}
+
+interface SegmentTemplate {
+  segment: string;
+  category: string;
+  template: string;
+  examples: PromptExample[];
+  platforms: string[];
 }
 
 interface PromptImprovement {
   originalPrompt: string;
   improvedPrompt: string;
-  intent: string;
+  segment: string;
+  platform: string;
+  effectivenessRating?: number;
   timestamp: Date;
   modelUsed: string;
 }
 ```
 
-### APIs and Integrations
-- **OpenAI GPT-4o**: Primary model for general prompt improvements
-- **Claude (optional)**: Evaluation for specific intents if cost-effective
-- **Chrome Storage API**: Persist user settings and usage data
-- **Chrome Runtime API**: Communication between extension components
-
-### Infrastructure Requirements
-- **Backend**: Node.js/Express server for API processing
-- **Database**: Supabase for user data and analytics
-- **Hosting**: Cloud platform Vercel with HTTPS
-- **CDN**: For extension assets and updates
+### AI Model Strategy
+- **Primary**: GPT-4o for general improvements and segment-specific enhancements
+- **Specialized**: Claude for academic/research segments (analytical strength)
+- **Future**: Segment-specific fine-tuned models for improved performance
 
 ## Development Roadmap
 
-### Phase 1: MVP Core Functionality
-- Chrome extension manifest and basic structure
-- Content script injection for ChatGPT
-- Basic prompt improvement using GPT-4o
-- Simple "Improve" button UI
-- Local storage for basic settings
-- Free tier with 20 improvements/month limit
+### Phase 1: Segment-Aware Chrome Extension
+- ✅ Chrome extension with segment selection onboarding
+- ✅ Four core segments (Creator, Developer, Student, Researcher) + General
+- ✅ Segment-specific prompt optimization templates
+- ✅ Support for ChatGPT, Claude, Gemini primary platforms
+- ✅ Usage tracking with segment analytics
+- ✅ Freemium model with segment-based limits
 
-### Phase 2: Enhanced Features
-- Intent selection dropdown with 5 specialized categories (Academic, Professional, Creative, Technical, Personal) plus General
-- Purpose-specific prompt optimization templates for each intent category
-- Support for additional LLM websites (Grok, Gemini, Perplexity)
-- Usage tracking and limit notifications
-- Popup interface for settings and account management
-- Backend API for prompt processing
+### Phase 2: Platform Expansion & Enhanced Templates
+- 🔄 MidJourney Discord integration for creators
+- 🔄 Enhanced developer templates with programming language detection
+- 🔄 Academic citation integration for researchers
+- 🔄 Student-specific learning frameworks
+- 🔄 Cross-platform consistency and advanced UI
+- 🔄 Premium tier with unlimited access and advanced templates
 
-### Phase 3: Monetization & Polish
-- User authentication and subscription system
-- Payment integration (Stripe)
-- Premium features and unlimited usage
-- Analytics dashboard for usage insights
-- Improved UI/UX based on user feedback
+### Phase 3: PromptPilot Desktop App
+- 📋 Native desktop application (Mac & PC)
+- 📋 Integration with Cursor, VS Code, Notion, Raycast
+- 📋 Global hotkey support for universal AI enhancement
+- 📋 Local processing options for privacy-conscious users
+- 📋 Advanced workflow automation for power users
 
-### Phase 4: Advanced Features
-- Custom intent creation
-- Prompt history and favorites
-- Team/organization features
-- Advanced analytics and insights
-- Mobile companion app consideration
+### Phase 4: Developer Ecosystem & SDK
+- 📋 PromptPilot Developer SDK for third-party integrations
+- 📋 VS Code extension for seamless coding workflow
+- 📋 API access for white-label solutions
+- 📋 Community template marketplace
+- 📋 Advanced analytics and A/B testing for prompt effectiveness
 
-## Logical Dependency Chain
-
-### Foundation (Must be built first)
-1. **Chrome Extension Structure**: Manifest V3, basic file organization, permissions
-2. **Content Script Core**: Detect input fields, inject basic UI elements
-3. **API Integration**: Connect to GPT-4o for prompt processing
-4. **Basic Improvement Flow**: Capture prompt → Process → Replace → Submit
-
-### Quick Usable Frontend
-5. **Simple UI**: "Improve" button that works on ChatGPT
-6. **Visual Feedback**: Loading states, success/error indicators
-7. **Basic Settings**: Enable/disable extension functionality
-
-### Iterative Improvements
-8. **Intent Selection**: Dropdown with predefined categories
-9. **Multi-site Support**: Extend to Grok, Gemini, other LLM sites
-10. **Usage Tracking**: Count improvements, show remaining quota
-11. **Monetization**: Payment system, subscription management
-
-### Advanced Features
-12. **Analytics**: Usage patterns, improvement effectiveness
-13. **Customization**: User-defined intents, prompt templates
-14. **Team Features**: Shared settings, organization management
-
-## Pricing Model
+## Pricing Model (Segment-Optimized)
 
 ### Freemium Structure
-- **Free Tier**: 20 prompt improvements per month
-- **Premium Subscription**: $5/month for unlimited improvements + advanced intents
-- **Lifetime Option**: $50 one-time payment for lifetime access
+- **Free Tier**: 15 improvements/month across all segments
+- **Creator Pro**: $8/month - Unlimited visual AI prompts + advanced style templates
+- **Developer Pro**: $12/month - Unlimited code prompts + IDE integrations + technical templates
+- **Academic Pro**: $6/month - Unlimited research/study prompts + citation tools (student discount available)
+- **Universal Pro**: $15/month - All segments unlimited + desktop app + premium templates
 
-### Revenue Projections
-- Target 10,000 free users in first 6 months
-- 5-10% conversion rate to premium (500-1000 paying users)
-- Monthly recurring revenue: $2,500-$5,000
+### Revenue Projections (Revised)
+- Target segment distribution: 40% Creators, 30% Developers, 20% Students, 10% Researchers
+- Conversion rates by segment: Creators 12%, Developers 15%, Students 8%, Researchers 10%
+- 18-month target: 25,000 total users, 2,500 paying subscribers
+- Projected MRR: $25,000-$35,000
 
-## Marketing Strategy
+## Marketing Strategy (Segment-Focused)
 
-### Primary Channels
-- **TikTok**: Short-form videos targeting students with hooks like "You're using AI wrong"
-- **Reddit**: Engage in r/artificial, r/ChatGPT, r/studytips communities
-- **Twitter/X**: Share tips and extension demos in AI and productivity spaces
+### Creator Marketing
+- **TikTok/Instagram**: Before/after AI art transformations, "MidJourney hacks"
+- **YouTube**: Collaboration with AI art content creators
+- **Discord**: Active participation in MidJourney and AI art communities
 
-### Content Strategy
-- Before/after prompt comparisons showing dramatic improvement in AI responses
-- Student-focused content: "Get better grades with AI" tutorials
-- Quick demos showing 10x better AI responses with one click
+### Developer Marketing
+- **Twitter/X**: Code improvement demonstrations, integration with popular dev tools
+- **Dev.to/Medium**: Technical articles about AI-assisted coding best practices
+- **GitHub**: Open-source contributions and developer community engagement
 
-### Launch Sequence
-1. Build initial user base through personal networks
-2. Create viral TikTok content demonstrating value
-3. Engage with AI communities on Reddit and Twitter
-4. Partner with AI/productivity influencers for reviews
+### Student Marketing
+- **TikTok**: "Study hacks with AI", "How to get better grades using AI"
+- **Reddit**: r/studytips, r/college, university-specific subreddits
+- **Campus partnerships**: University technology offices and student success centers
+
+### Researcher Marketing
+- **Academic Twitter**: Collaboration with AI research advocates
+- **Conferences**: Presentations at digital humanities and academic technology conferences
+- **Academic publications**: Articles about AI-assisted research methodologies
+
+## Success Metrics
+
+### Segment-Specific KPIs
+- **Creators**: Prompt iteration reduction, visual output satisfaction ratings
+- **Developers**: Code quality improvements, development time savings
+- **Students**: Learning comprehension improvements, academic performance correlation
+- **Researchers**: Research productivity metrics, citation and methodology quality
+
+### Business Metrics
+- Monthly Active Users by segment
+- Segment-specific conversion rates
+- Average revenue per user by segment
+- Cross-segment usage patterns
+- Template effectiveness ratings
 
 ## Risks and Mitigations
 
+### Market Risks
+- **Risk**: Segment preferences may shift with new AI tools
+- **Mitigation**: Flexible architecture allows rapid template adaptation and new segment creation
+
 ### Technical Challenges
-- **Risk**: LLM websites frequently change their UI, breaking content script injection
-- **Mitigation**: Build flexible selectors, implement automatic fallbacks, maintain update schedule
+- **Risk**: Platform-specific integrations become complex with visual AI tools
+- **Mitigation**: Partner with platforms for official integration, maintain fallback universal approaches
 
-- **Risk**: API rate limits and costs from OpenAI
-- **Mitigation**: Implement caching, optimize prompts, consider alternative models for cost efficiency
+### Competitive Landscape
+- **Risk**: AI platforms build native prompt enhancement features
+- **Mitigation**: Deep segment specialization creates defensible moats, desktop app reduces platform dependence
 
-### MVP Scope Management
-- **Risk**: Feature creep leading to delayed launch
-- **Mitigation**: Strict focus on core improvement functionality first, defer advanced features
+## Future Vision: PromptPilot Ecosystem
 
-- **Risk**: Poor user adoption due to complex onboarding
-- **Mitigation**: Zero-config first experience, progressive feature disclosure
+**5-Year Goal**: Become the standard prompt intelligence layer across all AI interactions
 
-### Resource Constraints
-- **Risk**: High API costs eating into revenue
-- **Mitigation**: Careful usage tracking, tiered pricing, explore cost-effective model alternatives
+- **Universal Integration**: Every AI tool, from creative to analytical, includes PromptPilot
+- **AI Prompt Standards**: Establish industry best practices for segment-specific AI interaction
+- **Educational Impact**: Partnered with universities for AI literacy and prompt engineering curricula
+- **Enterprise Solutions**: B2B offerings for companies wanting to standardize AI interaction quality
 
-- **Risk**: Chrome Web Store approval delays
-- **Mitigation**: Follow all guidelines strictly, prepare for review process, have backup distribution plan
+---
 
-## Appendix
-
-### Supported LLM Websites (Priority Order)
-1. ChatGPT (chat.openai.com)
-2. Claude (claude.ai)
-3. Google Gemini (gemini.google.com)
-4. Perplexity (perplexity.ai)
-5. Microsoft Copilot (copilot.microsoft.com)
-
-### Technical Specifications
-- **Manifest Version**: V3 (required for new Chrome extensions)
-- **Permissions**: activeTab, storage, scripting
-- **Content Security Policy**: Strict CSP for security
-- **Browser Support**: Chrome 88+, Edge 88+ (Chromium-based)
-
-### Research Findings
-- 73% of users report frustration with AI responses not meeting expectations
-- Average prompt length is 12 words, optimal length is 25-40 words
-- Students are 3x more likely to pay for AI productivity tools than general users
-- One-click solutions have 85% higher adoption rates than multi-step processes
+*This PRD represents a strategic evolution from a simple prompt enhancer to a comprehensive AI interaction intelligence platform, positioning PromptPilot as an essential tool for the AI-native generation.*

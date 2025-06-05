@@ -4,51 +4,60 @@
  */
 
 const INTENT_GUIDANCE = {
-  Academic: {
-    focus: "academic rigor, scholarly language, and research-oriented clarity",
+  Creator: {
+    focus:
+      "visual AI optimization, artistic precision, and production-ready creative output",
     guidelines: `
-- Use formal, domain-appropriate language for academic writing
-- Frame as a research question or hypothesis when possible
-- Add specificity around scope, methodology, or desired outputs
-- Embed field-of-study context or theoretical orientation
-- Encourage citations, comparative analysis, or evidence-driven reasoning
-- Prompt for critical evaluation or synthesis of perspectives`,
+- Transform vague descriptions into specific visual prompts with clear artistic direction
+- Include artistic style references (cinematic, anime, photorealistic, abstract, etc.)
+- Specify technical parameters: aspect ratios (16:9, 1:1, 9:16), quality levels, lighting conditions
+- Add composition details: camera angles, depth of field, color palettes, mood descriptors
+- Include medium specifications: digital art, photography, 3D render, illustration style
+- Optimize for visual AI tools (MidJourney, DALL-E, Stable Diffusion) with platform-specific formatting
+- Encourage detailed scene descriptions, character details, and environmental context
+- Use rich sensory language that translates well to visual generation`,
   },
-  Professional: {
-    focus: "business clarity, concise structure, and actionable deliverables",
+  Developer: {
+    focus:
+      "code context clarity, technical precision, and implementation-ready instructions",
     guidelines: `
-- Use clear and direct business language
-- Include specific objectives, roles, timelines, or success metrics
-- Add context (industry, stakeholder, company maturity, etc.)
-- Drive toward practical results or insights
-- Prompt for structured, goal-oriented output with measurable value`,
+- Convert vague coding requests into structured development instructions with clear context
+- Specify programming languages, frameworks, and technical stack requirements
+- Include system architecture context, input/output specifications, and API requirements
+- Add implementation details: error handling, edge cases, performance considerations
+- Request proper documentation: code comments, JSDoc, type definitions, examples
+- Specify desired output format: code blocks, pseudo-code, architectural diagrams, tests
+- Include constraints: security requirements, scalability needs, coding standards, best practices
+- Frame for debugging context: environment details, reproduction steps, expected vs actual behavior
+- Encourage modular, maintainable, and production-ready code solutions`,
   },
-  Creative: {
-    focus: "artistic expression, imagination, and stylistic richness",
+  Student: {
+    focus:
+      "learning enhancement, comprehension building, and educational growth",
     guidelines: `
-- Use evocative, sensory-rich language that sparks imagination
-- Include style, genre, tone, theme, or artistic references
-- Specify medium, audience, or narrative perspective
-- Allow creative constraints, plot elements, or emotional arcs
-- Encourage original, surprising, or high-concept ideas`,
+- Frame requests to promote understanding rather than just providing answers
+- Add learning objectives and specify desired depth of explanation (beginner/intermediate/advanced)
+- Include context about current knowledge level, course requirements, or academic goals
+- Encourage step-by-step breakdowns, examples, and practice opportunities
+- Request explanations of underlying concepts, not just surface-level information
+- Promote critical thinking: comparisons, analysis, real-world applications
+- Ask for study aids: summaries, mnemonics, practice questions, concept maps
+- Ensure academic integrity: understanding over completion, learning over shortcuts
+- Use encouraging, supportive tone that builds confidence and curiosity`,
   },
-  Technical: {
-    focus: "precision, system-level clarity, and implementation-ready output",
+  Researcher: {
+    focus:
+      "academic rigor, methodological clarity, and evidence-based analysis",
     guidelines: `
-- Use precise language suited for developers, engineers, or domain experts
-- Add system context (architecture, inputs/outputs, APIs, constraints)
-- Specify format (code block, diagram, pseudo-code, etc.)
-- Include use cases, edge cases, or performance goals
-- Optimize for clarity, modularity, and executable logic`,
-  },
-  Personal: {
-    focus: "relatable tone, emotional relevance, and tailored advice",
-    guidelines: `
-- Use conversational, empathetic tone
-- Add context about user's goals, background, or life situation
-- Clarify what kind of help is needed (advice, motivation, decision support)
-- Prompt for realistic, encouraging, and personally actionable steps
-- Ensure tone is warm, human, and non-judgmental`,
+- Frame inquiries with proper research methodology and academic structure
+- Include scope definition: time periods, geographic regions, specific populations or datasets
+- Specify desired analytical approach: systematic review, comparative analysis, theoretical framework
+- Request evidence-based responses with citations and source quality indicators
+- Encourage critical evaluation: limitations, conflicting evidence, research gaps
+- Add context about research objectives, hypotheses, or theoretical orientations
+- Specify output format: academic writing, literature review, research proposal, data analysis
+- Include methodological considerations: sample sizes, controls, variables, statistical approaches
+- Promote scholarly discourse with proper academic language and citation practices`,
   },
 };
 

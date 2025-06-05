@@ -33,11 +33,10 @@ let currentPlatform: keyof typeof PLATFORM_CONFIGS = "default";
 // Intent categories
 const INTENT_CATEGORIES = [
   "General",
-  "Academic",
-  "Professional",
-  "Creative",
-  "Technical",
-  "Personal",
+  "Creator",
+  "Developer",
+  "Student",
+  "Researcher",
 ];
 
 // Platform-specific configurations
@@ -168,30 +167,25 @@ const CONTEXTUAL_MESSAGES = {
     "Enhancing overall effectiveness...",
     "Optimizing for better results...",
   ],
-  Academic: [
-    "Enhancing academic tone...",
-    "Improving scholarly structure...",
-    "Refining research clarity...",
+  Creator: [
+    "Enhancing visual descriptions...",
+    "Optimizing for artistic AI tools...",
+    "Refining creative prompts...",
   ],
-  Professional: [
-    "Polishing professional language...",
-    "Enhancing business clarity...",
-    "Optimizing formal tone...",
+  Developer: [
+    "Clarifying technical requirements...",
+    "Optimizing code context...",
+    "Enhancing implementation details...",
   ],
-  Creative: [
-    "Boosting creative expression...",
-    "Enhancing narrative flow...",
-    "Amplifying creative voice...",
+  Student: [
+    "Structuring for learning...",
+    "Improving educational clarity...",
+    "Enhancing comprehension...",
   ],
-  Technical: [
-    "Clarifying technical details...",
-    "Improving precision...",
-    "Enhancing technical accuracy...",
-  ],
-  Personal: [
-    "Personalizing your message...",
-    "Improving conversational tone...",
-    "Enhancing personal expression...",
+  Researcher: [
+    "Applying academic rigor...",
+    "Enhancing research methodology...",
+    "Refining scholarly inquiry...",
   ],
 };
 
@@ -1423,11 +1417,10 @@ function createIntentIndicator() {
  */
 function getIntentEmoji(intent: string): string {
   const emojiMap: { [key: string]: string } = {
-    Academic: "🎓",
-    Professional: "💼",
-    Creative: "🎨",
-    Technical: "⚙️",
-    Personal: "💭",
+    Creator: "🎨",
+    Developer: "💻",
+    Student: "📚",
+    Researcher: "🔬",
     General: "✨",
   };
   return emojiMap[intent] || "✨";
@@ -1464,30 +1457,25 @@ function updateLoadingStageWithIntent(stage: number) {
  */
 function getIntentLoadingMessage(intent: string, stage: number): string {
   const messages = {
-    Academic: {
+    Creator: {
+      1: "Analyzing for visual clarity...",
+      2: "Enhancing artistic direction...",
+      3: "Finalizing creative improvements...",
+    },
+    Developer: {
+      1: "Analyzing technical context...",
+      2: "Enhancing code specifications...",
+      3: "Finalizing implementation details...",
+    },
+    Student: {
+      1: "Structuring for learning...",
+      2: "Enhancing educational clarity...",
+      3: "Finalizing comprehension aids...",
+    },
+    Researcher: {
       1: "Analyzing for academic rigor...",
-      2: "Enhancing scholarly structure...",
-      3: "Finalizing research-focused improvements...",
-    },
-    Professional: {
-      1: "Optimizing for business clarity...",
-      2: "Enhancing professional tone...",
-      3: "Finalizing actionable outcomes...",
-    },
-    Creative: {
-      1: "Boosting creative expression...",
-      2: "Enhancing artistic vision...",
-      3: "Finalizing imaginative improvements...",
-    },
-    Technical: {
-      1: "Analyzing technical precision...",
-      2: "Enhancing implementation details...",
-      3: "Finalizing technical accuracy...",
-    },
-    Personal: {
-      1: "Personalizing your message...",
-      2: "Enhancing conversational tone...",
-      3: "Finalizing relatable improvements...",
+      2: "Enhancing research methodology...",
+      3: "Finalizing scholarly improvements...",
     },
     General: {
       1: "Analyzing your prompt...",
@@ -3070,11 +3058,10 @@ function resetIntent() {
 function getIntentShortName(intent: string): string {
   const shortNames: { [key: string]: string } = {
     General: "Gen",
-    Academic: "Acad",
-    Professional: "Pro",
-    Creative: "Art",
-    Technical: "Tech",
-    Personal: "Chat",
+    Creator: "Create",
+    Developer: "Dev",
+    Student: "Study",
+    Researcher: "Research",
   };
   return shortNames[intent] || "Gen";
 }
